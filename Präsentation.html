@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kollisionskaskaden — HPC-Präsentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080b14; --bg2:#0c111e; --surface:#121829; --line:rgba(124,148,196,.14);
+  --ink:#e9edf7; --dim:#8a95b0; --faint:#5a6480;
+  --blue:#5b9dff; --blue-2:#3f7fe0; --coral:#ff6f4d; --amber:#ffc24d;
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-font-smoothing:antialiased}
+#lattice-bg{position:fixed;inset:0;z-index:0;opacity:.5;pointer-events:none}
+.glow{position:fixed;z-index:0;pointer-events:none;filter:blur(90px)}
+.glow.a{width:46vw;height:46vw;left:-12vw;top:-14vw;background:radial-gradient(circle,var(--blue),transparent 65%);opacity:.30}
+.glow.b{width:42vw;height:42vw;right:-12vw;bottom:-16vw;background:radial-gradient(circle,var(--coral),transparent 65%);opacity:.22}
+
+#progress{position:fixed;top:0;left:0;height:2px;z-index:50;background:linear-gradient(90deg,var(--blue),var(--coral));transition:width .5s cubic-bezier(.4,0,.2,1)}
+#counter{position:absolute;bottom:26px;right:32px;z-index:40;font-family:var(--mono);font-size:13px;color:var(--dim);letter-spacing:.05em}
+#counter b{color:var(--ink);font-weight:500}
+#dots{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:40;display:flex;gap:9px}
+#dots button{width:7px;height:7px;border-radius:50%;border:0;cursor:pointer;padding:0;background:rgba(138,149,176,.3);transition:.3s}
+#dots button.on{background:var(--blue);box-shadow:0 0 10px var(--blue);transform:scale(1.25)}
+.nav-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:40;width:44px;height:44px;border:1px solid var(--line);background:rgba(18,24,41,.6);color:var(--dim);border-radius:50%;cursor:pointer;font-size:18px;backdrop-filter:blur(8px);transition:.25s;display:grid;place-items:center}
+.nav-arrow:hover{color:var(--ink);border-color:var(--blue);box-shadow:0 0 18px rgba(91,157,255,.25)}
+#prev{left:26px}#next{right:26px}
+
+#timeline{position:absolute;top:0;left:0;right:0;z-index:45;display:flex;gap:0;padding:7px clamp(36px,6cqw,110px);font-family:var(--mono);pointer-events:none}
+#timeline.tl-hide{visibility:hidden;pointer-events:none}
+.tl-seg{flex:1;display:flex;align-items:center;justify-content:center;pointer-events:auto;cursor:pointer;color:var(--faint);transition:.3s;padding:4px 2px;border-bottom:2px solid transparent;border-radius:0}
+.tl-seg .lbl{font-size:clamp(8px,0.88cqw,10.5px);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.tl-seg.done{color:var(--blue-2);border-bottom-color:var(--blue-2)}
+.tl-seg.active{color:var(--coral);border-bottom-color:var(--coral);font-weight:600}
+@media (max-width:720px){#timeline{display:none}}
+
+#deck{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(100vw,calc(100vh * 16 / 9));
+  aspect-ratio:16/9;
+  container-type:size;
+  z-index:10;overflow:hidden;
+}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:clamp(42px,6cqw,110px);opacity:0;visibility:hidden;transform:translateY(26px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1),visibility .55s}
+.slide.active{opacity:1;visibility:visible;transform:none}
+.slide.past{transform:translateY(-26px)}
+#s9b{padding-left:0;padding-right:0;padding-bottom:clamp(12px,1.5cqh,24px)}
+.s9b-pad{padding-left:clamp(42px,6cqw,110px);padding-right:clamp(42px,6cqw,110px)}
+
+.eyebrow{font-family:var(--mono);font-size:clamp(10.1px, 1.04cqw, 13px);letter-spacing:.18em;text-transform:uppercase;color:var(--blue);margin-bottom:24px;display:flex;align-items:center;gap:14px}
+.eyebrow .num{color:var(--coral)}
+.eyebrow::before{content:"";width:34px;height:1px;background:var(--blue);opacity:.6}
+h1{font-family:var(--display);font-weight:700;letter-spacing:-.02em;line-height:1.0;font-size:clamp(48px,9cqw,128px)}
+h2{font-family:var(--display);font-weight:600;letter-spacing:-.015em;line-height:1.06;font-size:clamp(24px,3.4cqw,40px);margin-bottom:16px}
+.lead{font-size:clamp(16px,1.6cqw,21px);color:var(--dim);max-width:60ch;line-height:1.6}
+.hot{color:var(--coral)}.cool{color:var(--blue)}.em{color:var(--ink);font-weight:600}
+
+#s0{padding:clamp(36px,6cqw,110px)}
+#s0 .meta{margin-top:38px;display:flex;gap:28px;align-items:baseline;flex-wrap:wrap}
+#s0 .meta .who{font-family:var(--mono);font-size:clamp(11.7px, 1.2cqw, 15px);color:var(--ink)}
+#s0 .meta .hint{font-family:var(--mono);font-size:clamp(9.8px, 1cqw, 12.5px);color:var(--dim)}
+#s0 h1{margin-bottom:22px}
+#cascade{position:absolute;inset:0;z-index:1;pointer-events:none}
+#s0 .inner{position:relative;z-index:2}
+.sub{font-size:clamp(18px,2cqw,26px);color:var(--dim);max-width:52ch;line-height:1.5}
+
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:12px;max-width:1100px}
+.card{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--line);border-radius:16px;padding:28px 30px;position:relative;overflow:hidden}
+.card .tag{font-family:var(--mono);font-size:clamp(9.4px, 0.96cqw, 12px);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.card.primary .tag{color:var(--blue)}.card.secondary .tag{color:var(--coral)}
+.card h3{font-family:var(--display);font-size:clamp(17.9px, 1.84cqw, 23px);font-weight:600;margin:10px 0 12px}
+.card p{color:var(--dim);font-size:clamp(11.7px, 1.2cqw, 15px);line-height:1.6}
+.card .bar{position:absolute;left:0;top:0;bottom:0;width:3px}
+.card.primary .bar{background:var(--blue)}.card.secondary .bar{background:var(--coral)}
+.bignum{font-family:var(--mono);font-weight:700;font-size:clamp(38px,4.6cqw,58px);letter-spacing:-.02em;line-height:1;margin-top:16px}
+.bignum .u{font-size:.4em;color:var(--dim);margin-left:10px;letter-spacing:0}
+
+.facts{display:flex;flex-direction:column;gap:18px;margin-top:6px;max-width:62ch}
+.fact{display:flex;gap:20px;align-items:flex-start}
+.fact .k{font-family:var(--mono);color:var(--blue);font-size:clamp(13px,1.3cqw,15px);min-width:78px;flex:none;padding-top:3px}
+.fact .v{font-size:clamp(15px,1.5cqw,17px);line-height:1.5;color:var(--ink);min-width:0;flex:1}
+.fact .v small{display:block;color:var(--dim);font-size:clamp(12.5px,1.25cqw,14px);margin-top:4px;line-height:1.45}
+/* Fazit / Offene Fragen: feste Label-Breite -> alle rechten Texte bündig */
+.alignk .fact .k{min-width:104px;overflow-wrap:normal}
+/* CUDA-Folie: Label ueber Text stapeln -> alle rechten Texte gleiche Startkante & Breite */
+.cudafacts .fact{flex-direction:column;gap:5px}
+.cudafacts .fact .k{min-width:0;flex:none;padding-top:0;letter-spacing:.06em;text-transform:uppercase;font-size:clamp(11.5px,1.12cqw,13.5px)}
+.cudafacts .fact .v{font-size:clamp(13px,1.32cqw,15.5px)}
+
+/* feature slide */
+.feature-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:44px;align-items:center;margin-top:6px}
+#feat-cv{width:100%;height:440px;display:block;background:rgba(8,11,20,.4);border:1px solid var(--line);border-radius:14px}
+.toggle{display:inline-flex;margin-top:18px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg2)}
+.toggle button{font-family:var(--mono);font-size:clamp(10.1px, 1.04cqw, 13px);padding:10px 18px;border:0;background:transparent;color:var(--dim);cursor:pointer;transition:.25s}
+.toggle button.on{background:var(--blue);color:#061021;font-weight:600}
+.params{font-family:var(--mono);font-size:clamp(10.9px, 1.12cqw, 14px);line-height:1.7;background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--coral);border-radius:12px;padding:20px 22px;color:var(--ink);white-space:pre;overflow:auto}
+.params .sec{color:var(--coral)} .params .key{color:var(--blue)} .params .cm{color:var(--faint)}
+.params-side .lead{margin-top:18px;font-size:clamp(12.5px, 1.28cqw, 16px)}
+
+/* code highlights */
+.snips{display:flex;flex-direction:column;gap:16px;margin-top:4px;max-width:1120px}
+.snip{display:grid;grid-template-columns:1.3fr 1fr;gap:26px;align-items:center}
+.snip pre{font-family:var(--mono);font-size:clamp(9.8px, 1cqw, 12.5px);line-height:1.5;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:14px 18px;overflow:auto}
+.snip .cm{color:var(--faint)}.snip .kw{color:var(--coral)}.snip .fn{color:var(--amber)}.snip .nm{color:var(--blue)}
+.snip .why{font-size:clamp(12.5px, 1.28cqw, 16px);line-height:1.6;color:var(--dim)}
+.snip .why b{color:var(--ink);font-weight:600;display:block;font-family:var(--display);font-size:clamp(14px, 1.44cqw, 18px);margin-bottom:8px}
+/* 6-up compact code grid (s5) */
+.snips6{display:grid;grid-template-columns:1fr 1fr;gap:14px 28px;margin:16px auto 0;max-width:1300px;width:100%}
+.snips6 .snip{display:flex;flex-direction:column;gap:6px}
+.snips6 .snip pre{font-family:var(--mono);font-size:clamp(10.5px,0.98cqw,13px);line-height:1.44;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;overflow:auto;color:#c4cde0;margin:0}
+.snips6 .snip pre .cm{color:var(--faint)}.snips6 .snip pre .kw{color:var(--coral)}.snips6 .snip pre .fn{color:var(--amber)}.snips6 .snip pre .nm{color:var(--blue)}
+.snips6 .snip .why{font-size:clamp(11.5px,1.1cqw,14px);line-height:1.46;color:var(--dim);padding:0 2px}
+.snips6 .snip .why b{color:var(--ink);font-weight:600;font-family:var(--display);font-size:clamp(12.5px,1.2cqw,15.5px);display:inline;margin-right:6px}
+
+/* mpi decomp */
+.decomp-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;margin-top:6px}
+#decomp{width:100%;height:380px;display:block;border:1px solid var(--line);border-radius:14px;background:rgba(8,11,20,.4)}
+.legend2{display:flex;flex-direction:column;gap:16px;margin-top:6px}
+.legk{display:flex;gap:13px;align-items:baseline;font-size:clamp(12.5px, 1.28cqw, 16px);color:var(--ink)}
+.legk i{width:13px;height:13px;border-radius:3px;flex:none;position:relative;top:2px}
+.legk small{display:block;color:var(--dim);font-size:clamp(10.9px, 1.12cqw, 14px);margin-top:2px}
+
+/* charts */
+.chart-wrap{display:grid;grid-template-columns:1.3fr 1fr;gap:46px;align-items:center;margin-top:6px}
+canvas.chart{width:100%;height:auto;display:block}
+.legend{display:flex;gap:22px;margin-top:16px;font-family:var(--mono);font-size:clamp(9.8px, 1cqw, 12.5px);color:var(--dim)}
+.legend i{display:inline-block;width:22px;height:2px;margin-right:7px;vertical-align:middle}
+
+.flow{display:flex;align-items:center;gap:18px;margin-top:30px;flex-wrap:wrap;font-family:var(--mono)}
+.chip{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 24px;text-align:center}
+.chip .big{font-size:clamp(23.4px, 2.4cqw, 30px);font-weight:700;color:var(--blue)}
+.chip.hotchip .big{color:var(--coral)}
+.chip .lbl{font-size:clamp(9.4px, 0.96cqw, 12px);color:var(--dim);margin-top:6px}
+.flow .arr{color:var(--dim);font-size:clamp(17.2px, 1.76cqw, 22px)}
+
+#s10 h1{font-size:clamp(56px,11cqw,150px)}
+.archline{font-family:var(--mono);font-size:clamp(10.9px, 1.12cqw, 14px);color:var(--dim);margin-top:30px;line-height:2.1}
+.archline b{color:var(--blue)}.archline .c{color:var(--coral)}
+code{font-family:var(--mono);background:rgba(91,157,255,.1);color:var(--blue);padding:2px 7px;border-radius:5px;font-size:.86em}
+
+/* data structure (SoA) */
+.soa-grid{display:grid;grid-template-columns:1fr 1fr;gap:42px;align-items:center;margin-top:4px}
+.memviz{display:flex;flex-direction:column;gap:22px}
+.memviz .lbl{font-family:var(--mono);font-size:clamp(9.4px, 0.96cqw, 12px);color:var(--dim);margin-bottom:7px}
+.cells{display:flex;gap:3px;flex-wrap:wrap}
+.cell{width:24px;height:24px;border-radius:4px;background:rgba(124,148,196,.14);font-family:var(--mono);font-size:clamp(7px, 0.72cqw, 9px);display:grid;place-items:center;color:var(--faint)}
+.cell.x{background:var(--blue);color:#04101f;font-weight:700}
+.memnote{font-family:var(--mono);font-size:clamp(9.8px, 1cqw, 12.5px);margin-top:9px}
+.memnote.bad{color:var(--coral)}.memnote.good{color:var(--blue)}
+/* the calculation */
+.calc-grid{display:grid;grid-template-columns:.95fr 1.05fr;gap:36px;align-items:center;margin-top:4px}
+.calc{font-family:var(--mono);background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:12px;padding:20px 24px;font-size:clamp(11.7px, 1.2cqw, 15px);line-height:2.05;color:var(--ink)}
+.calc .o{color:var(--dim)}.calc .hl{color:var(--amber);font-weight:700}
+table.rk{border-collapse:collapse;font-family:var(--mono);font-size:clamp(10.9px, 1.12cqw, 14px);width:100%}
+table.rk th,table.rk td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+table.rk th{color:var(--dim);font-weight:500;font-size:clamp(8.6px, 0.88cqw, 11px);text-transform:uppercase;letter-spacing:.06em}
+table.rk td .dram{color:var(--dim)}table.rk td .l3{color:var(--blue)}
+table.rk tr.cross td{color:var(--amber);font-weight:700;background:rgba(255,194,77,.06)}
+/* flow diagram */
+.flow-d{display:flex;align-items:stretch;flex-wrap:wrap;margin-top:16px}
+.ph{flex:1;min-width:118px;background:rgba(91,157,255,.08);border:1px solid var(--line);border-top:3px solid var(--blue);border-radius:10px;padding:16px 12px;text-align:center;margin:4px}
+.ph.comm{background:rgba(255,111,77,.08);border-top-color:var(--coral)}
+.ph.big{box-shadow:0 0 0 1px var(--blue) inset}
+.ph .pn{font-family:var(--display);font-weight:600;font-size:clamp(14px, 1.44cqw, 18px);display:block}
+.ph .pt{font-family:var(--mono);font-size:clamp(7.8px, 0.8cqw, 10px);color:var(--dim);margin-top:5px;display:block;text-transform:uppercase;letter-spacing:.04em}
+.farrow{align-self:center;color:var(--dim);font-size:clamp(13.3px, 1.36cqw, 17px);padding:0 1px}
+/* two-col + placeholder + roofline */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:38px;align-items:center;margin-top:4px}
+.todo{border:1px dashed var(--coral);border-radius:10px;padding:13px 17px;color:var(--dim);font-family:var(--mono);font-size:clamp(9.8px, 1cqw, 12.5px);background:rgba(255,111,77,.05);margin-top:14px}
+.todo b{color:var(--coral)}
+/* full code flow */
+.codeflow{display:flex;flex-direction:column;gap:9px;margin-top:6px;max-width:1000px}
+.cf{display:flex;align-items:center;gap:14px;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:11px 18px;font-family:var(--mono);font-size:clamp(10.1px, 1.04cqw, 13px);color:var(--ink)}
+.cf.setup{border-left:3px solid var(--blue)}.cf.fin{border-left:3px solid var(--amber)}
+.cf b{color:var(--blue)}.cf.fin b{color:var(--amber)}
+.cfloop{border:1px solid var(--line);border-left:3px solid var(--coral);border-radius:12px;padding:9px 14px 11px;background:rgba(255,111,77,.03)}
+.cfloop>.lh{font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--coral);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 9px}
+.cfstep{display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:9px;background:var(--bg2);border:1px solid var(--line);margin-bottom:6px;font-family:var(--mono);font-size:clamp(10.1px, 1.04cqw, 13px)}
+.cfstep:last-child{margin-bottom:0}
+.cfstep.comm{border-left:3px solid var(--coral)}.cfstep.comp{border-left:3px solid var(--blue)}
+.cfstep .tag{color:var(--faint);min-width:30px}
+.cfstep .timer{margin-left:auto;font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--amber)}
+.cfstep .timer::before{content:"⏱ "}
+/* panel grid + zoom overlay */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
+.pgrid.cols2{max-width:1060px}
+.pcard{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:13px 14px 8px;cursor:pointer;transition:.25s;position:relative;min-width:0}
+.pcard:hover{border-color:var(--blue);box-shadow:0 0 22px rgba(91,157,255,.16);transform:translateY(-2px)}
+.pcard .ptitle{font-family:var(--display);font-size:clamp(12.5px, 1.28cqw, 16px);font-weight:600;margin-bottom:4px;display:flex;align-items:baseline;gap:10px}
+.pcard .ptitle span{font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim);font-weight:400}
+.pcard .pzoom{position:absolute;top:15px;right:16px;font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim)}
+.pcard canvas{display:block;width:100%}
+.poverlay{position:fixed;inset:0;z-index:80;background:rgba(4,7,14,.82);backdrop-filter:blur(6px);display:grid;place-items:center;padding:5vh 6vw}
+.poverlay.hidden{display:none}
+.pmodal{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:26px 32px 30px;max-width:1000px;width:100%;position:relative}
+.pmodal h3{font-family:var(--display);font-size:clamp(20.3px, 2.08cqw, 26px);font-weight:600}
+.pmodal .pinfo p{color:var(--dim);font-size:clamp(12.5px, 1.28cqw, 16px);line-height:1.6;margin-top:12px;max-width:84ch}
+.pmodal canvas{display:block;width:100%;margin-top:8px}
+.pclose{position:absolute;top:14px;right:20px;background:transparent;border:0;color:var(--dim);font-size:clamp(21.8px, 2.24cqw, 28px);cursor:pointer;line-height:1}
+.pclose:hover{color:var(--ink)}
+.plegend{display:flex;gap:15px;flex-wrap:wrap;font-family:var(--mono);font-size:clamp(9.4px, 0.96cqw, 12px);color:var(--dim);margin-top:12px}
+.plegend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:middle}
+@media (max-width:860px){
+  .cols,.chart-wrap,.feature-grid,.decomp-grid,.snip,.soa-grid,.calc-grid,.two,.pgrid,.fgrid{grid-template-columns:1fr}
+  .nav-arrow{display:none}
+}
+@media (prefers-reduced-motion:reduce){.slide{transition:opacity .2s}}
+.deshalb{margin-top:16px;padding:10px 16px;border-left:3px solid var(--amber);background:rgba(255,194,77,.06);border-radius:0 8px 8px 0;font-size:clamp(12.5px,1.4cqw,15px);color:var(--dim);line-height:1.45}
+.deshalb b{color:var(--amber);font-weight:600;letter-spacing:.02em}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+.fcard{background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:12px;padding:14px 18px}
+.fcard .ftitle{font-family:var(--display);font-size:clamp(15px,1.5cqw,19px);font-weight:600;color:var(--ink);margin-bottom:8px}
+.fcard .feq{font-family:var(--mono);font-size:clamp(14px,1.6cqw,18px);color:var(--amber);line-height:1.6;margin-bottom:8px}
+.fcard .fnote{font-size:clamp(13px,1.35cqw,15px);color:var(--dim);line-height:1.5}
+.ccode{font-family:var(--mono);font-size:clamp(10.5px,1.05cqw,12.5px);line-height:1.55;background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:13px 15px;overflow:auto;white-space:pre;color:#c4cde0;margin:4px 0 0}
+.ccode .hl{color:var(--amber);font-weight:600}
+/* ===== Folie GPU-Optimierung (s_gpuopt) — gescopte Styles ===== */
+#s_gpuopt h2 .hl{color:var(--amber)}
+#s_gpuopt .body{display:grid;grid-template-columns:1.15fr .85fr;gap:3cqw;align-items:stretch;flex:1;min-height:0;margin-top:6px}
+#s_gpuopt .col{display:flex;flex-direction:column;gap:1.8cqh;min-height:0}
+#s_gpuopt .mech{background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:1.6cqh 1.4cqw;display:flex;flex-direction:column;gap:.8cqh;flex:1;justify-content:center}
+#s_gpuopt .mech h3{font-family:var(--display);font-weight:600;font-size:2.05cqh;display:flex;align-items:center;gap:8px}
+#s_gpuopt .mech h3 .tag{font-family:var(--mono);font-size:1.35cqh;color:var(--bg);background:var(--blue);border-radius:5px;padding:1px 7px;font-weight:500}
+#s_gpuopt .mech .cap{font-size:1.6cqh;color:var(--dim);line-height:1.4}
+#s_gpuopt .mech svg{width:100%;height:auto;display:block}
+#s_gpuopt .res{background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:2cqh 1.6cqw;display:flex;flex-direction:column;gap:1.5cqh;height:100%}
+#s_gpuopt .res h3{font-family:var(--display);font-weight:600;font-size:2.1cqh;color:var(--dim)}
+#s_gpuopt .res .statlist{display:flex;flex-direction:column;flex:1;justify-content:space-between}
+#s_gpuopt .stat{display:flex;flex-direction:column;gap:.3cqh}
+#s_gpuopt .stat .lab{font-size:1.5cqh;color:var(--dim)}
+#s_gpuopt .stat .val{font-family:var(--display);font-size:2.5cqh;font-weight:600}
+#s_gpuopt .stat .val .arrow{color:var(--faint);margin:0 6px;font-weight:400}
+#s_gpuopt .flat{color:var(--amber)}
+#s_gpuopt .up{color:var(--blue)}
+#s_gpuopt .divider{height:1px;background:rgba(255,255,255,.06)}
+#s_gpuopt .lbl{font-family:var(--mono);font-size:1.3cqh;fill:var(--dim)}
+#s_gpuopt .lblb{font-family:var(--mono);font-size:1.3cqh;fill:var(--blue)}
+#s_gpuopt .lbla{font-family:var(--mono);font-size:1.3cqh;fill:var(--amber)}
+</style>
+</head>
+<body>
+<canvas id="lattice-bg"></canvas>
+<div class="glow a"></div><div class="glow b"></div>
+
+<div id="deck">
+  <div id="timeline"></div>
+  <div id="buildtag" style="position:absolute;left:9px;bottom:6px;z-index:60;font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.06em;color:rgba(138,149,176,.4);pointer-events:none">v2026-07-01b</div>
+  <section class="slide" id="s0">
+    <canvas id="cascade"></canvas>
+    <div class="inner">
+      <div class="eyebrow">WPM HPC · Noctua2 Paderborn × TH Lübeck</div>
+      <h1>Kollisions&shy;kaskaden</h1>
+      <p class="sub">Ein paralleler Strahlenschaden-Simulator — vom MPI-Scaling zum CUDA-Port.</p>
+      <div class="meta"><span class="who">Paul Kamm</span>
+        <span class="hint">→ / Leertaste zum Blättern · <b style="color:var(--coral)">R</b> startet die Kaskade neu</span></div>
+    </div>
+  </section>
+
+  <section class="slide" id="s1">
+    <div class="eyebrow"><span class="num">01</span> Motivation & Ziele</div>
+    <h2>Vom PKA zum Power Law</h2>
+    <p class="lead">Ein energiereiches Neutron schlägt ein Gitteratom heraus — das <span class="em">PKA</span>. Es entsteht eine verzweigende <span class="em">Kollisionskaskade</span>, die bleibende Defektcluster hinterlässt, das Material versprödet und verliert Festigkeit. Zwei Fragen, eine Codebasis:</p>
+    <div class="two" style="align-items:center">
+      <div>
+        <div class="card primary" style="margin-bottom:14px"><span class="bar"></span><div class="tag">Primär · Informatik / HPC</div>
+          <h3>Der parallele Simulator</h3>
+          <p><em>Eine große</em> Kaskade über viele Kerne — MPI-Scaling + Single-GPU-CUDA. Diese Säule trägt die Arbeit.</p></div>
+        <div class="card secondary"><span class="bar"></span><div class="tag">Sekundär · Physik / Nachweis</div>
+          <h3>Das Power Law</h3>
+          <p><em>Viele</em> unabhängige Kaskaden → Clustergrößen-Verteilung: folgt sie <br> F(n) ∝ n<sup>−S</sup> ? Exponent wird per Maximum-Likelihood bestimmt.</p></div>
+      </div>
+      <!-- CCDF P(N>=n) der gepoolten Clustergrößen — reproduziert aus analyze_ensemble.py (1000 Kaskaden) -->
+      <svg viewBox="0 0 460 320" style="width:100%;height:auto;max-height:42cqh"><text x="58" y="20" fill="var(--dim)" font-size="13" font-family="var(--mono)">Cluster-CCDF — 1000 Kaskaden, 2391 Cluster</text>
+      <!-- y-Gitter + Labels (P = 10^0 .. 10^-3) -->
+      <line x1="58" y1="40" x2="442" y2="40" stroke="rgba(124,148,196,.10)"/><text x="52" y="43" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="end">10⁰</text>
+      <line x1="58" y1="118" x2="442" y2="118" stroke="rgba(124,148,196,.10)"/><text x="52" y="121" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="end">10⁻¹</text>
+      <line x1="58" y1="196" x2="442" y2="196" stroke="rgba(124,148,196,.10)"/><text x="52" y="199" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="end">10⁻²</text>
+      <line x1="58" y1="274" x2="442" y2="274" stroke="rgba(124,148,196,.10)"/><text x="52" y="277" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="end">10⁻³</text>
+      <!-- x-Gitter + Labels (n = 1 .. 1000) -->
+      <line x1="58" y1="40" x2="58" y2="274" stroke="rgba(124,148,196,.10)"/><text x="58" y="288" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="middle">1</text>
+      <line x1="167.7" y1="40" x2="167.7" y2="274" stroke="rgba(124,148,196,.10)"/><text x="167.7" y="288" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="middle">10</text>
+      <line x1="277.4" y1="40" x2="277.4" y2="274" stroke="rgba(124,148,196,.10)"/><text x="277.4" y="288" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="middle">100</text>
+      <line x1="387.1" y1="40" x2="387.1" y2="274" stroke="rgba(124,148,196,.10)"/><text x="387.1" y="288" fill="var(--faint)" font-size="12" font-family="var(--mono)" text-anchor="middle">1000</text>
+      <!-- Achsen -->
+      <line x1="58" y1="40" x2="58" y2="274" stroke="rgba(138,149,176,.5)"/><line x1="58" y1="274" x2="442" y2="274" stroke="rgba(138,149,176,.5)"/>
+      <!-- xmin-Marker -->
+      <line x1="124.1" y1="40" x2="124.1" y2="274" stroke="rgba(138,149,176,.35)" stroke-dasharray="3 4"/><text x="128" y="52" fill="var(--faint)" font-size="12" font-family="var(--mono)">x<tspan baseline-shift="sub" font-size="9">min</tspan>=4</text>
+      <text x="128" y="64" fill="var(--faint)" font-size="9.5" font-family="var(--mono)">Fit nur ab n ≥ 4</text>
+      <!-- Sand 2013 Referenz S=1,63 (steiler) -->
+      <line x1="124.1" y1="65.6" x2="437.0" y2="205.8" stroke="rgba(138,149,176,.7)" stroke-width="1.4" stroke-dasharray="6 4"/>
+      <!-- MLE-Fit-Gerade S=1,41 -->
+      <line x1="124.1" y1="65.6" x2="437.0" y2="156.8" stroke="var(--coral)" stroke-width="2"/>
+      <!-- Gemessene CCDF-Daten (Kurve) -->
+      <polyline points="58.0,40.0 91.0,55.7 110.3,60.3 124.1,65.6 143.4,71.0 167.7,77.6 200.7,83.7 233.8,90.5 260.4,96.3 277.4,100.4 310.5,107.1 343.5,114.2 370.1,120.8 387.1,126.4 406.5,136.5 420.2,149.0 426.8,169.3 430.8,196.0 434.5,231.6 437.0,270.8" fill="none" stroke="var(--blue)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <!-- Annotationen -->
+      <text x="416" y="100" fill="var(--coral)" font-size="12" font-family="var(--mono)" text-anchor="end">F(n) ∝ n<tspan baseline-shift="super" font-size="9">−S</tspan></text>
+      <text x="416" y="82" fill="var(--blue)" font-size="12" font-family="var(--mono)" text-anchor="end">Finite-Size-Cutoff ↘</text>
+      <!-- Legende unten links -->
+      <rect x="62" y="214" width="14" height="3" fill="var(--blue)"/><text x="80" y="218" fill="var(--dim)" font-size="12" font-family="var(--mono)">Daten · CCDF P(N≥n)</text>
+      <rect x="62" y="228" width="14" height="3" fill="var(--coral)"/><text x="80" y="232" fill="var(--dim)" font-size="12" font-family="var(--mono)">MLE-Fit: S=1,41 (Heal) / 1,38 (no heal)</text>
+      <rect x="62" y="244" width="14" height="3" fill="rgba(138,149,176,.7)"/><text x="80" y="248" fill="var(--dim)" font-size="12" font-family="var(--mono)">Sand 2013: S=1,63 (3D-W)</text>
+      <text x="250" y="306" fill="var(--dim)" font-size="13" font-family="var(--mono)" text-anchor="middle">Clustergröße n (log)</text>
+      <text x="18" y="157" fill="var(--dim)" font-size="13" font-family="var(--mono)" text-anchor="middle" transform="rotate(-90 18 157)">P(N ≥ n) (log)</text></svg>
+    </div>
+  </section>
+
+  <section class="slide" id="s2">
+    <div class="eyebrow"><span class="num">02</span> Das Modell</div>
+    <h2>Atome mit Federn — in 2D</h2>
+    <!-- Obere Zeile: Simulation links, SoA-Visualisierung rechts -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;margin-top:4px">
+      <div style="position:relative;min-height:32cqh;border-radius:14px;overflow:hidden;background:rgba(91,157,255,.045);border:1px solid rgba(124,148,196,.12)">
+        <canvas id="model-cv" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+        <div id="model-cap" style="position:absolute;left:12px;bottom:9px;font-family:var(--mono);font-size:clamp(9px, 0.92cqw, 11.5px);color:var(--dim)">1 PKA · zentral</div>
+      </div>
+      <div style="border-radius:14px;overflow:hidden;background:rgba(91,157,255,.018);border:1px solid rgba(124,148,196,.12);display:flex;align-items:center;padding:6px 2px">
+    <svg viewBox="0 0 440 265" style="width:100%;height:auto;font-family:var(--mono)">
+      <!-- Titel -->
+      <text x="8" y="16" fill="var(--dim)" font-size="10.5" letter-spacing=".02em">Structure of Arrays — jede Größe liegt am Stück im Speicher</text>
+      <!-- Spaltenköpfe -->
+      <text x="93" y="31" fill="var(--faint)" font-size="10.5" text-anchor="middle">Atom 0</text>
+      <text x="169" y="31" fill="var(--faint)" font-size="10.5" text-anchor="middle">Atom 1</text>
+      <text x="218" y="31" fill="var(--faint)" font-size="10.5" text-anchor="middle">···</text>
+      <text x="269" y="31" fill="var(--faint)" font-size="10.5" text-anchor="middle">2M-1</text>
+      <!-- px[] row -->
+      <text x="54" y="57" fill="var(--blue)" font-size="12" text-anchor="end" font-weight="600">px []</text>
+      <rect x="58" y="42" width="70" height="22" rx="3" fill="var(--blue)" opacity=".85"/><text x="93" y="58" fill="#04101f" font-size="10" text-anchor="middle">0.12</text>
+      <rect x="134" y="42" width="70" height="22" rx="3" fill="var(--blue)" opacity=".7"/><text x="169" y="58" fill="#04101f" font-size="10" text-anchor="middle">0.34</text>
+      <text x="218" y="58" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="42" width="70" height="22" rx="3" fill="var(--blue)" opacity=".6"/><text x="269" y="58" fill="#04101f" font-size="10" text-anchor="middle">1.23</text>
+      <!-- py[] row -->
+      <text x="54" y="83" fill="var(--blue)" font-size="12" text-anchor="end" font-weight="600">py []</text>
+      <rect x="58" y="68" width="70" height="22" rx="3" fill="var(--blue)" opacity=".65"/><text x="93" y="84" fill="#04101f" font-size="10" text-anchor="middle">0.43</text>
+      <rect x="134" y="68" width="70" height="22" rx="3" fill="var(--blue)" opacity=".8"/><text x="169" y="84" fill="#04101f" font-size="10" text-anchor="middle">0.21</text>
+      <text x="218" y="84" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="68" width="70" height="22" rx="3" fill="var(--blue)" opacity=".55"/><text x="269" y="84" fill="#04101f" font-size="10" text-anchor="middle">0.55</text>
+      <!-- vx[] row -->
+      <text x="54" y="109" fill="rgba(91,157,255,.55)" font-size="12" text-anchor="end">vx []</text>
+      <rect x="58" y="94" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="93" y="110" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <rect x="134" y="94" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="169" y="110" fill="#c4cde0" font-size="10" text-anchor="middle">1.23</text>
+      <text x="218" y="110" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="94" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="269" y="110" fill="#c4cde0" font-size="10" text-anchor="middle">0.34</text>
+      <!-- vy[] row -->
+      <text x="54" y="135" fill="rgba(91,157,255,.55)" font-size="12" text-anchor="end">vy []</text>
+      <rect x="58" y="120" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="93" y="136" fill="#c4cde0" font-size="10" text-anchor="middle">2.13</text>
+      <rect x="134" y="120" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="169" y="136" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <text x="218" y="136" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="120" width="70" height="22" rx="3" fill="rgba(91,157,255,.35)"/><text x="269" y="136" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <!-- fx[] row -->
+      <text x="54" y="161" fill="rgba(255,194,77,.8)" font-size="12" text-anchor="end">fx []</text>
+      <rect x="58" y="146" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="93" y="162" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <rect x="134" y="146" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="169" y="162" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <text x="218" y="162" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="146" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="269" y="162" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <!-- fy[] row -->
+      <text x="54" y="187" fill="rgba(255,194,77,.8)" font-size="12" text-anchor="end">fy []</text>
+      <rect x="58" y="172" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="93" y="188" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <rect x="134" y="172" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="169" y="188" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <text x="218" y="188" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="172" width="70" height="22" rx="3" fill="rgba(255,194,77,.28)"/><text x="269" y="188" fill="#c4cde0" font-size="10" text-anchor="middle">0.00</text>
+      <!-- nbr[][] row -->
+      <text x="54" y="213" fill="rgba(255,111,77,.85)" font-size="12" text-anchor="end">nbr[][]</text>
+      <rect x="58" y="198" width="70" height="22" rx="3" fill="rgba(255,111,77,.3)"/><text x="93" y="213" fill="#c4cde0" font-size="9" text-anchor="middle">3,7,12…</text>
+      <rect x="134" y="198" width="70" height="22" rx="3" fill="rgba(255,111,77,.3)"/><text x="169" y="213" fill="#c4cde0" font-size="9" text-anchor="middle">4,8,13…</text>
+      <text x="218" y="213" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="198" width="70" height="22" rx="3" fill="rgba(255,111,77,.3)"/><text x="269" y="213" fill="#c4cde0" font-size="9" text-anchor="middle">…</text>
+      <!-- cell[] row -->
+      <text x="54" y="239" fill="rgba(138,149,176,.65)" font-size="12" text-anchor="end">cell []</text>
+      <rect x="58" y="224" width="70" height="22" rx="3" fill="rgba(124,148,196,.2)"/><text x="93" y="240" fill="#c4cde0" font-size="10" text-anchor="middle">42</text>
+      <rect x="134" y="224" width="70" height="22" rx="3" fill="rgba(124,148,196,.2)"/><text x="169" y="240" fill="#c4cde0" font-size="10" text-anchor="middle">43</text>
+      <text x="218" y="240" fill="var(--faint)" font-size="13" text-anchor="middle">···</text>
+      <rect x="234" y="224" width="70" height="22" rx="3" fill="rgba(124,148,196,.2)"/><text x="269" y="240" fill="#c4cde0" font-size="10" text-anchor="middle">999</text>
+      <!-- Atom 1 highlight -->
+      <rect x="132" y="40" width="74" height="208" rx="3" fill="none" stroke="rgba(255,194,77,.45)" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="169" y="259" fill="rgba(255,194,77,.7)" font-size="10" text-anchor="middle">← Atom 1: 76 B über 8 Arrays</text>
+    </svg>
+      </div><!-- end SoA right col -->
+    </div><!-- end top row grid -->
+    <!-- Untere Zeile: 4 Facts im 2×2 Raster -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;margin-top:10px">
+      <div class="fact"><span class="k">Gitter</span><span class="v">Dreiecksgitter, 6 Nachbarn pro Atom<small>schubstabil, anders als ein Quadratgitter</small></span></div>
+      <div class="fact"><span class="k">Bindung</span><span class="v">Federn, die bei Überdehnung <span class="hot">reißen</span><small>plus steile Abstoßung, damit Atome kollidieren wie beim Billiard</small></span></div>
+      <div class="fact"><span class="k">PKA</span><span class="v">ein Atom mit hoher Anfangsgeschwindigkeit<small>der Hammerschlag, der die verzweigende Kaskade auslöst</small></span></div>
+      <div class="fact"><span class="k">Scope</span><span class="v">2D — der <span class="cool">Mechanismus</span> zählt<small>kein echtes Material; Fokus auf HPC und den Nachweis des Power Laws</small></span></div>
+    </div>
+  </section>
+
+  <section class="slide" id="s_phys" style="justify-content:center">
+    <div class="eyebrow"><span class="num"></span> Modell · Physik & Rechnung</div>
+    <h2>Wie ein Zeitschritt rechnet</h2>
+    <p class="lead">Jedes Atom = Punktmasse auf einem Dreiecksgitter. Pro Schritt: erst alle Kräfte <span class="em">F(x)</span> sammeln, dann mit <span class="em">Velocity-Verlet</span> integrieren. Zwei Kräfte, ein Bruchkriterium.</p>
+    <div class="two" style="align-items:start;margin-top:12px;gap:32px">
+      <!-- LINKS: der Zeitschritt (Loop) -->
+      <div>
+        <div style="font-family:var(--mono);font-size:clamp(11px,1.15cqw,13px);letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:10px">Der Zeitschritt · Velocity-Verlet</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:14px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 14px">
+            <span style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim);min-width:56px">1/2-Kick</span><span style="font-family:var(--mono);font-size:clamp(12px,1.4cqw,15px);color:var(--amber)">v ← v + ½ (F/m) dt</span></div>
+          <div style="display:flex;gap:14px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 14px">
+            <span style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim);min-width:56px">Drift</span><span style="font-family:var(--mono);font-size:clamp(12px,1.4cqw,15px);color:var(--amber)">x ← x + v dt</span></div>
+          <div style="display:flex;gap:14px;align-items:center;background:rgba(255,111,77,.07);border:1px solid var(--coral);border-radius:9px;padding:9px 14px">
+            <span style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--coral);min-width:56px">Kräfte</span><span style="font-family:var(--mono);font-size:clamp(12px,1.4cqw,15px);color:var(--ink)">F ← F(x)</span><span style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--coral);margin-left:auto">→ rechts</span></div>
+          <div style="display:flex;gap:14px;align-items:center;background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 14px">
+            <span style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim);min-width:56px">1/2-Kick</span><span style="font-family:var(--mono);font-size:clamp(12px,1.4cqw,15px);color:var(--amber)">v ← v + ½ (F/m) dt</span></div>
+        </div>
+        <div class="fnote" style="margin-top:12px">symplektisch → Energieerhaltung = <span class="cool">Korrektheits-Check</span></div>
+      </div>
+      <!-- RECHTS: die Kräfte F(x) -->
+      <div>
+        <div style="font-family:var(--mono);font-size:clamp(11px,1.15cqw,13px);letter-spacing:.08em;text-transform:uppercase;color:var(--coral);margin-bottom:10px">Die Kräfte F(x) · pro Schritt neu</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="fcard"><div class="ftitle">Feder (Hooke, anziehend)</div><div class="feq">F<sub>Feder</sub> = K (r − L<sub>0</sub>)</div><div class="fnote">Bruch bei r > 1,15 · L<sub>0</sub> → Bindung reißt <span class="hot">und bleibt gerissen</span> (= Schaden)</div></div>
+          <div class="fcard" style="border-left-color:var(--coral)"><div class="ftitle">Abstoßung (weicher Kern, r < R<sub>cut</sub>)</div><div class="feq">F<sub>rep</sub> = K<sub>rep</sub> ((R<sub>cut</sub>/r)<sup>n</sup> − 1)</div><div class="fnote">Beispiel: r = 0,6 → <span class="hot">≈ 51 500</span> · r = 1,0 → <span class="hot">−287</span> · zieht schwach an, pusht stark zurück</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;margin-top:16px;background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:12px;padding:12px 20px">
+      <div style="font-family:var(--mono);font-size:clamp(12px,1.3cqw,15px);color:var(--ink)"><span class="hot">PKA-Anstoß</span>: v<sub>PKA</sub> = √(2 E<sub>PKA</sub>/m), E<sub>PKA</sub> = 5000 — der Hammerschlag, der die Kaskade auslöst</div>
+      <div style="font-family:var(--mono);font-size:clamp(12px,1.05cqw,15px);color:var(--dim);text-align:right">Parameter: K=100 · L<sub>0</sub>=1 · K<sub>rep</sub>=400 · n=12 · R<sub>cut</sub>=0,9 · dt=2e−4</div>
+    </div>
+    <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:clamp(11.5px,1.15cqw,14px);color:var(--dim);line-height:1.5">
+      <div><span class="hot">▸ Velocity-Verlet</span> — Kick–Drift–Kick; Kräfte nur <span class="em">1×/Schritt</span> → billig, 2. Ordnung genau &amp; zeitreversibel</div>
+      <div><span class="cool">▸ symplektisch</span> — erhält die Phasenraum-Struktur → <span class="em">kein Energie-Drift</span> über lange Läufe (Euler driftet weg)</div>
+    </div>
+  </section>
+
+  <section class="slide" id="s4">
+    <div class="eyebrow"><span class="num">04</span> MPI · das nicht-triviale Kommunikationsmuster</div>
+    <h2>Streifen, Halos, Umzüge</h2>
+    <p class="lead" style="margin-bottom:20px;max-width:94ch">Zwei Millionen Atome passen nicht auf einen Kern. Also zerschneiden wir das Gitter in
+      <span class="cool">horizontale Streifen</span> — jeder MPI-Rank besitzt einen und rechnet nur dessen Atome. Das Problem:
+      Die Physik kennt keine Streifengrenzen. Ein Atom am Rand braucht bei jedem Schritt seine Nachbarn im fremden Streifen,
+      und bewegt es sich zu weit, gehört es plötzlich einem anderen Rank. Beides muss kommuniziert werden — und genau
+      das ist der spannende Teil.</p>
+    <div class="decomp-grid">
+      <canvas id="decomp"></canvas>
+      <div class="legend2">
+        <div class="legk"><i style="background:var(--blue)"></i><span><b style="font-family:var(--display)">1D-Zerlegung</b><small>Jeder der vier Ranks besitzt einen waagrechten Streifen. Die hellen Punkte sind seine Atome.</small></span></div>
+        <div class="legk"><i style="background:var(--amber)"></i><span><b style="font-family:var(--display)">Halo-Austausch (gelb)</b><small>Vor jedem Kraftschritt schickt jeder Rank Kopien seiner Randatome an den Nachbarn — „Geister", damit beide Seiten dieselbe Grenze sehen. Der gelbe Puls ist dieser Austausch.</small></span></div>
+        <div class="legk"><i style="background:var(--coral)"></i><span><b style="font-family:var(--display)">Migration (koralle)</b><small>Überquert ein Atom die Grenze, wechselt es den Besitzer: Der alte Rank löscht es, der neue übernimmt es samt Bindungen.</small></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="s5" style="justify-content:center;padding-top:clamp(24px,2.8cqh,50px);padding-bottom:clamp(24px,2.8cqh,50px)">
+    <div class="eyebrow"><span class="num">05</span> Code-Highlights · Kommunikation & Rechnung</div>
+    <h2>Wie Ranks reden und rechnen</h2>
+    <div class="snips6">
+      <div class="snip">
+        <pre><span class="cm">// jeder Rank summiert NUR die eigene Kraft</span>
+<span class="kw">for</span> (<span class="kw">int</span> e = 0; e &lt; s-&gt;nb[p]; e++) {
+    <span class="kw">int</span> q = <span class="fn">hash_get</span>(s, s-&gt;pg[base+e]);
+    fxi += K*(r-L0)/r * (s-&gt;px[q]-s-&gt;px[p]);
+}
+s-&gt;fx[p] = fxi;   <span class="cm">// nie in fremde Atome -&gt; race-free</span></pre>
+        <div class="why"><b>Gather statt Scatter.</b>Kein Rank fasst ein fremdes Atom an — Grundlage für Migration und die GPU ohne Sperren.</div>
+      </div>
+      <div class="snip">
+        <pre><span class="cm">// Velocity-Verlet: ½-Kick + Drift  →  Kräfte  →  ½-Kick</span>
+s.vx[p] += 0.5*DT*s.fx[p]/s.mass[p];
+s.px[p] += DT*s.vx[p];
+<span class="cm">/* ... forces_strip() ... */</span>
+s.vx[p] += 0.5*DT*s.fx[p]/s.mass[p];</pre>
+        <div class="why"><b>Symplektisch.</b>Energieerhaltung ist Verfahrenseigenschaft — zugleich unser <span class="cool">Korrektheits-Check</span> (dt = 2e−4).</div>
+      </div>
+      <div class="snip">
+        <pre><span class="cm">// Randatome als „Geister" zum Nachbarstreifen schicken</span>
+<span class="kw">if</span> (s-&gt;py[p] &gt;= s-&gt;yhi - halo_w) {
+    b[0]=s-&gt;gid[p]; b[1]=s-&gt;px[p]; b[2]=s-&gt;py[p];
+    b[3]=s-&gt;vx[p];  b[4]=s-&gt;vy[p];
+}
+<span class="fn">sendrecv_var</span>(sUp, nUp*HALO_STRIDE, NEXT, rbuf, cap, PREV, 200);</pre>
+        <div class="why"><b>Halo-Austausch.</b>Jeden Schritt neu, damit beide Seiten die Grenze identisch sehen.</div>
+      </div>
+      <div class="snip">
+        <pre><span class="cm">// lineare Feder — reißt bei Überdehnung, Energie wird verbucht</span>
+<span class="kw">double</span> f = K_SPRING*(r-L0)/r;  s-&gt;fx[p] += f*dx;  s-&gt;fy[p] += f*dy;
+<span class="kw">if</span> (r &gt; L0*MAX_STRETCH) {            <span class="cm">// 1,15·L0 -&gt; Bruch</span>
+    s-&gt;intact[base+e] = 0;
+    s-&gt;E_broken += 0.5*(0.5*K_SPRING*(r-L0)*(r-L0));
+}</pre>
+        <div class="why"><b>Feder &amp; Bruch.</b>Freigesetzte Energie → <code>E_broken</code> — so bleibt die <span class="hot">Energiebilanz</span> trotz Bruch geschlossen.</div>
+      </div>
+      <div class="snip">
+        <pre><span class="cm">// Atom hat die Grenze überquert -&gt; Besitzwechsel</span>
+<span class="kw">if</span> (s-&gt;py[p] &gt;= s-&gt;yhi &amp;&amp; NEXT != MPI_PROC_NULL) {
+    <span class="fn">pack_atom</span>(&amp;sUp[nUp*ATOM_STRIDE], s, p);
+    nUp++;  <span class="fn">remove_atom</span>(s, p);
+}
+<span class="fn">sendrecv_var</span>(sUp, nUp*ATOM_STRIDE, NEXT, rbuf, cap, PREV, 100);</pre>
+        <div class="why"><b>Migration.</b>Dasselbe Primitiv wie der Halo — das ganze Atom wandert samt Bindungen zum neuen Eigentümer.</div>
+      </div>
+      <div class="snip">
+        <pre><span class="cm">// Abstoßung: nur eigene + Nachbarzellen statt aller Atome</span>
+<span class="kw">for</span> (<span class="kw">int</span> o=0;o&lt;9;o++)
+  <span class="kw">for</span> (<span class="kw">int</span> q=c-&gt;head[cell]; q!=-1; q=c-&gt;next[q]) {
+      <span class="kw">if</span> (r2 &gt;= rc2) <span class="kw">continue</span>;
+      <span class="kw">double</span> f = <span class="fn">rep_force</span>(r)/r;  s-&gt;fx[p]+=f*dx;
+  }</pre>
+        <div class="why"><b>Cell List → O(N).</b>Linear statt quadratisch — die r⁻¹²-Abstoßung wird erst bezahlbar.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="s6" style="justify-content:center;padding-top:clamp(24px,2.8cqh,50px);padding-bottom:clamp(24px,2.8cqh,50px)">
+    <div class="eyebrow"><span class="num"></span> Strong Scaling · vier Blickwinkel</div>
+    <h2>2,0 Mio. Atome — Panel anklicken zum Reinzoomen</h2>
+    <div class="pgrid" id="pg-strong"></div>
+  <div class="deshalb"><b>Deshalb:</b> Der superlineare Sprung ab 64 Kernen ist kein Messfehler — ab da passt der Datensatz pro Rang in den L3-Cache. Es ist die <b style="color:var(--amber)">Speicherbandbreite</b>, nicht die Rechenleistung, die skaliert.</div>
+  </section>
+
+  <section class="slide" id="s8eng" style="justify-content:center;padding-top:clamp(24px,2.8cqh,50px);padding-bottom:clamp(24px,2.8cqh,50px)">
+    <div class="eyebrow"><span class="num"></span> Der Engpass</div>
+    <h2>Es ist die <span class="hot">Speicherbandbreite</span></h2>
+    <div style="display:grid;grid-template-columns:1.5fr 0.5fr;gap:18px;align-items:start;margin-top:4px">
+      <div>
+        <div class="calc" style="margin-bottom:6px;font-size:clamp(10.1px, 1.04cqw, 13px);padding:10px 16px;line-height:1.55;width:fit-content;margin-left:calc(10.26% + 30px)">
+          <span class="o">76 B/Atom × 2,0 Mio. =</span> <span class="hl">152 MB</span> <span class="o">÷ p Ranks = Datensatz/Rank</span>
+          <br> <span class="o">L3-Anteil =</span> 32 MB ÷ 8 Kerne = <span class="hl">≈ 4 MB/Rank</span>
+        </div>
+        <svg viewBox="0 0 760 400" style="width:100%;height:auto;max-height:55cqh">
+          <line x1="78" y1="50" x2="78" y2="310" stroke="rgba(138,149,176,.5)"/>
+          <line x1="700" y1="50" x2="700" y2="310" stroke="rgba(138,149,176,.25)"/>
+          <line x1="78" y1="310" x2="700" y2="310" stroke="rgba(138,149,176,.5)"/>
+          <line x1="78" y1="123" x2="700" y2="123" stroke="rgba(124,148,196,.08)"/>
+          <line x1="78" y1="185" x2="700" y2="185" stroke="rgba(124,148,196,.08)"/>
+          <line x1="78" y1="248" x2="700" y2="248" stroke="rgba(124,148,196,.08)"/>
+          <text x="70" y="314" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="end">0,1</text>
+          <text x="70" y="252" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="end">1</text>
+          <text x="70" y="189" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="end">10</text>
+          <text x="70" y="127" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="end">100</text>
+          <text x="708" y="314" fill="var(--faint)" font-size="12.5" font-family="var(--mono)">0</text>
+          <text x="708" y="231" fill="var(--faint)" font-size="12.5" font-family="var(--mono)">50</text>
+          <text x="708" y="147" fill="var(--faint)" font-size="12.5" font-family="var(--mono)">100</text>
+          <text x="708" y="64"  fill="var(--faint)" font-size="12.5" font-family="var(--mono)">150</text>
+          <text x="78"  y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">1</text>
+          <text x="156" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">2</text>
+          <text x="234" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">4</text>
+          <text x="311" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">8</text>
+          <text x="389" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">16</text>
+          <text x="467" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">32</text>
+          <text x="544" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">64</text>
+          <text x="622" y="330" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">128</text>
+          <text x="700" y="330" fill="var(--coral)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">256</text>
+          <text x="389" y="358" fill="var(--dim)" font-size="13" font-family="var(--mono)" text-anchor="middle">Kerne</text>
+          <text x="24" y="180" fill="var(--dim)" font-size="13" font-family="var(--mono)" text-anchor="middle" transform="rotate(-90 24 180)">Datensatz / Rank [MB, log]</text>
+          <text x="746" y="180" fill="var(--dim)" font-size="13" font-family="var(--mono)" text-anchor="middle" transform="rotate(90 746 180)">Effizienz [%]</text>
+          <!-- L3-Schwelle -->
+          <line x1="78" y1="210" x2="700" y2="210" stroke="var(--coral)" stroke-width="1.6" stroke-dasharray="6 5" opacity=".85"/>
+          <text x="86" y="204" fill="var(--coral)" font-size="12.5" font-family="var(--mono)">L3-Anteil ≈ 4 MB / Rank</text>
+          <!-- Datensatz/Rank (MB, log) — gleiche Datenpunkte, y verschoben +10 -->
+          <polyline id="cache-mb" points="78,111 156,130 234,149 311,168 389,186 467,205 544,224 622,243 700,262"
+                    fill="none" stroke="var(--blue)" stroke-width="2.5"/>
+          <!-- Effizienz (%) -->
+          <polyline id="cache-eff" points="78,143 156,158 234,177 311,199 389,231 467,209 544,177 622,88 700,100"
+                    fill="none" stroke="var(--amber)" stroke-width="2.5"/>
+          <!-- Schnittpunkt aller drei Kurven: blau kreuzt y=210 bei ~x=487; amber kreuzt y=210 bei ~x=462 → Mitte ~474 -->
+          <circle id="cache-cross" cx="474" cy="210" r="8" fill="var(--amber)" opacity=".9"/>
+          <circle cx="474" cy="210" r="4" fill="white"/>
+          <text x="510" y="205" fill="var(--amber)" font-size="12.5" font-family="var(--mono)">Datensatz &lt; L3</text>
+          <!-- Effizienz-Tief + Superlinear -->
+          <circle cx="389" cy="231" r="4.5" fill="var(--amber)"/>
+          <text x="383" y="248" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">Tief 47 %</text>
+          <circle cx="622" cy="88" r="4.5" fill="var(--amber)"/>
+          <text x="614" y="82" fill="var(--amber)" font-size="12.5" font-family="var(--mono)" text-anchor="end">133 % superlinear</text>
+          <circle cx="700" cy="100" r="4.5" fill="none" stroke="var(--coral)" stroke-width="2"/>
+          <text x="725" y="114" fill="var(--coral)" font-size="12" font-family="var(--mono)" text-anchor="end">126 % · 2 Nodes</text>
+          <!-- Legende -->
+          <rect x="200" y="376" width="12" height="12" rx="2" fill="var(--blue)"/>
+          <text x="217" y="386" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">Datensatz / Rank</text>
+          <rect x="380" y="376" width="12" height="12" rx="2" fill="var(--amber)"/>
+          <text x="397" y="386" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">Effizienz</text>
+          <rect x="510" y="376" width="12" height="12" rx="2" fill="none" stroke="var(--coral)" stroke-width="2"/>
+          <text x="527" y="386" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">256 = 2 Nodes</text>
+        </svg>
+      </div>
+      <div style="padding-top:8px">
+        <p class="lead" style="font-size:clamp(13px,1.3cqw,16px);line-height:1.6">Die <span class="cool">blaue</span> Kurve fällt mit 152 MB/p.<br><br>Wo sie zwischen <span class="hot">32 und 64 Kernen</span> den L3-Anteil unterschreitet, dreht die <span style="color:var(--amber)">Effizienz</span> ins <span class="em">Superlineare</span> — derselbe x-Wert.<br><br>Der gelbe Punkt markiert den Schnittpunkt: Datensatz = L3-Anteil, Effizienz-Umkehr, Cache-Transition — <em>ein Punkt, drei Aussagen</em>.</p>
+      </div>
+    </div>
+  <div class="deshalb"><b>Deshalb:</b> Der Flaschenhals ist die Speicherbandbreite — und derselbe L3-Übergang erklärt zugleich die superlineare Strong-Scaling-Kurve. Eine Ursache, zwei Beobachtungen.</div>
+  </section>
+
+  <section class="slide" id="s_cuda">
+    <div class="eyebrow"><span class="num"></span> Code · CUDA: was anders ist</div>
+    <h2>Derselbe Kernel, andere Maschine</h2>
+    <div class="two">
+      <div>
+        <div class="lbl">CPU (MPI) — Schleife über Atome</div>
+        <pre class="ccode"><span class="hl">for</span> (int p = 0; p &lt; n; p++)
+ for (int e = 0; e &lt; deg[p]; e++) {
+   int q = nbr[p][e];
+   double r = dist(p, q);
+   if (r &gt; L0*MAXSTR) { intact[p][e]=0; continue; }
+   double f = K*(r-L0)/r;
+   fx[p]+=f*dx; fy[p]+=f*dy;  // nur eigenes Atom
+ }</pre>
+      </div>
+      <div>
+        <div class="lbl">CUDA — ein Thread pro Atom</div>
+        <pre class="ccode"><span class="hl">int i = blockIdx.x*blockDim.x + threadIdx.x;</span>
+if (i &gt;= N) return;
+double fxi=0, fyi=0;
+for (int e = 0; e &lt; deg[i]; e++) {
+  int j = nbr[i][e];
+  double r = dist(i, j);
+  if (r &gt; L0*maxstr) { intact[i][e]=0; continue; }
+  double f = K*(r-L0)/r;
+  fxi += f*dx; fyi += f*dy;   // nur eigenes Atom
+}
+<span class="hl">fx[i]=fxi; fy[i]=fyi;</span>  // 1 Write, keine Atomics</pre>
+      </div>
+    </div>
+    <div class="cudafacts" style="display:grid;grid-template-columns:1fr 1fr;gap:14px 30px;margin-top:14px">
+      <div class="fact"><span class="k">Index</span><span class="v">die <code>for</code>-Schleife wird zu <code>i = blockIdx·blockDim + threadIdx</code><small>der Thread IST der Schleifenzähler — tausende gleichzeitig</small></span></div>
+      <div class="fact"><span class="k">Gather statt Scatter</span><span class="v">schon die CPU schreibt nur ins <span class="hot">eigene</span> Atom — auf der GPU ist das <span class="cool">Pflicht</span>: jede Paarung 2× rechnen, nur das eigene Atom schreiben<small>kein Race, keine Atomics im teuren Kraft-Kernel</small></span></div>
+      <div class="fact"><span class="k">Reduktion</span><span class="v">Host-Summe → <span class="hot">parallele Reduktion</span> auf der GPU<small>Shared-Memory-Baum statt sequenzieller Schleife</small></span></div>
+      <div class="fact"><span class="k">Atomics sparsam</span><span class="v">Zell-Einsortierung per <code>atomicExch</code> · ein <code>atomicAdd</code> nur für den Bruchenergie-Zähler<small>die Kraft-Arrays bleiben atomic-frei — kein Race im Hot Path</small></span></div>
+    </div>
+  </section>
+
+  <section class="slide" id="s_tts">
+    <div class="eyebrow"><span class="num"></span> CPU vs. GPU</div>
+    <h2>Time-to-Solution</h2>
+    <div style="display:grid;grid-template-columns:1.45fr 0.55fr;gap:22px;align-items:start;margin-top:6px">
+      <svg viewBox="0 0 720 310" style="width:100%;height:auto;max-height:66cqh">
+        <!-- Gridlines -->
+        <line x1="174" y1="50" x2="174" y2="268" stroke="rgba(124,148,196,.08)"/>
+        <text x="174" y="285" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">1 s</text>
+        <line x1="308" y1="50" x2="308" y2="268" stroke="rgba(124,148,196,.08)"/>
+        <text x="308" y="285" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">10 s</text>
+        <line x1="442" y1="50" x2="442" y2="268" stroke="rgba(124,148,196,.08)"/>
+        <text x="442" y="285" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">100 s</text>
+        <line x1="576" y1="50" x2="576" y2="268" stroke="rgba(124,148,196,.08)"/>
+        <text x="576" y="285" fill="var(--faint)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">1000 s</text>
+        <line x1="160" y1="50" x2="160" y2="268" stroke="rgba(138,149,176,.5)"/>
+        <!-- CPU: 1 EPYC-Kern — Grund INNEN im Balken -->
+        <text x="152" y="78" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">1 EPYC-Kern</text>
+        <rect id="tts0" x="160" y="62" width="431" height="28" rx="4" fill="var(--coral)"/>
+        <text x="375" y="79" fill="#0e1320" font-size="11" font-family="var(--mono)" text-anchor="middle" font-weight="700">DRAM-bandbreiten-gebunden</text>
+        <text x="598" y="81" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">1153 s</text>
+        <!-- CPU: 64-Kern-Knoten — Grund INNEN im Balken -->
+        <text x="152" y="122" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">64-Kern-Knoten</text>
+        <rect id="tts1" x="160" y="106" width="198" height="28" rx="4" fill="var(--blue)"/>
+        <text x="259" y="123" fill="#061828" font-size="10.5" font-family="var(--mono)" text-anchor="middle" font-weight="700">speicher-gebunden</text>
+        <text x="365" y="125" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">22,5 s</text>
+        <!-- GPU: T4 — Grund RECHTS neben Balken, weiß -->
+        <text x="152" y="166" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">Tesla T4 · fp64</text>
+        <rect id="tts4" x="160" y="150" width="188" height="28" rx="4" fill="#a78bfa"/>
+        <text x="355" y="169" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">19,1 s</text>
+        <text x="440" y="169" fill="white" font-size="11" font-family="var(--mono)" font-weight="600">→ compute-bound (87 % SM-Auslastung)</text>
+        <!-- GPU: A100 fp64 — Grund RECHTS, weiß -->
+        <text x="152" y="210" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">A100 · fp64</text>
+        <rect id="tts2" x="160" y="194" width="40" height="28" rx="4" fill="var(--amber)"/>
+        <text x="207" y="213" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">1,58 s</text>
+        <text x="280" y="213" fill="white" font-size="11" font-family="var(--mono)" font-weight="600">→ latenz-/speicher-gebunden (45 % / 37 % Peak)</text>
+        <!-- GPU: A100 fp32 — Grund RECHTS, weiß -->
+        <text x="152" y="254" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="end">A100 · fp32</text>
+        <rect id="tts3" x="160" y="238" width="13" height="28" rx="4" fill="#9fd0ff"/>
+        <text x="180" y="257" fill="var(--dim)" font-size="12.5" font-family="var(--mono)">1,00 s</text>
+        <text x="280" y="257" fill="white" font-size="11" font-family="var(--mono)" font-weight="600">→ speicher-gebunden · fp32 nur 1,58×, nicht 2×</text>
+        <text x="430" y="302" fill="var(--dim)" font-size="12.5" font-family="var(--mono)" text-anchor="middle">Walltime [s] · log-Skala</text>
+      </svg>
+      <div style="padding-top:4px">
+        <p style="font-size:clamp(12.5px,1.25cqw,15.5px);color:var(--dim);line-height:1.65">Gleiche Physik, 2 Mio. Atome, 3000 Schritte — nur andere Hardware.</p>
+        <p style="font-size:clamp(12.5px,1.25cqw,15.5px);color:var(--ink);line-height:1.65;margin-top:12px"><span class="hot">A100</span> · fp64: <span class="hot">1,58 s</span><br>= <span class="hot">731×</span> vs. 1 Kern<br>= <span class="hot">14×</span> vs. 64-Kern-Knoten<br><span style="color:var(--faint);font-size:.88em">6912 CUDA-Kerne, 1,5 TB/s HBM</span></p>
+        <p style="font-size:clamp(12.5px,1.25cqw,15.5px);color:var(--ink);line-height:1.65;margin-top:12px"><span style="color:#a78bfa">Tesla T4</span>: 19,1 s<br><span style="color:var(--faint);font-size:.88em">2560 CUDA-Kerne, 320 GB/s GDDR6</span><br>→ gleicher Kernel, anderer Engpass</p>
+        <p style="font-size:clamp(11px,1.1cqw,13px);color:var(--dim);line-height:1.55;margin-top:12px">H2D/D2H-Transfer: 14 ms → vernachlässigbar (≈ 1 % der Rechenzeit)</p>
+      </div>
+    </div>
+  <div class="deshalb"><b>Deshalb:</b> Die A100 gewinnt durch ~5× HBM-Bandbreite und massive Parallelität — beim selben bandbreitenlimitierten Kernel der größte Hebel. Der Transfer fällt nur einmal an.</div>
+  </section>
+
+  <section class="slide" id="s9b" style="padding-top:clamp(42px,5cqh,68px);padding-bottom:clamp(42px,5cqh,68px);justify-content:center">
+    <div class="s9b-pad">
+    <div class="eyebrow"><span class="num"></span> ncu-Befund</div>
+    <h2 style="margin-bottom:8px">Was limitiert die GPU?</h2>
+    <!-- Obere Zeile: zwei kleine Charts -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px">
+      <svg viewBox="0 0 440 270" style="width:100%;height:auto;max-height:42cqh">
+        <text x="40" y="18" fill="var(--dim)" font-size="12" font-family="var(--mono)">Zeitanteil pro Schritt</text>
+        <line x1="60" y1="222" x2="380" y2="222" stroke="rgba(138,149,176,.4)"/>
+        <!-- CPU bar at x=70, A100 bar at x=270 (wider gap) -->
+        <g id="ncu-hg-cpu">
+          <rect x="70" y="55" width="90" height="167" fill="var(--blue)"/>
+          <text x="115" y="143" fill="#0e1320" font-size="12" font-weight="600" font-family="var(--mono)" text-anchor="middle">92%</text>
+          <rect x="70" y="46" width="90" height="9" fill="#7FB2D8"/>
+          <rect x="70" y="40" width="90" height="6" fill="rgba(138,149,176,.55)"/>
+        </g>
+        <g id="ncu-hg-a100">
+          <rect x="270" y="133" width="90" height="89" fill="var(--blue)"/>
+          <text x="315" y="182" fill="#0e1320" font-size="12" font-weight="600" font-family="var(--mono)" text-anchor="middle">48%</text>
+          <rect x="270" y="113" width="90" height="20" fill="#7FB2D8"/>
+          <text x="315" y="127" fill="#0e1320" font-size="12" font-weight="600" font-family="var(--mono)" text-anchor="middle">11%</text>
+          <rect x="270" y="40" width="90" height="73" fill="var(--amber)"/>
+          <text x="315" y="80" fill="#0e1320" font-size="12" font-weight="600" font-family="var(--mono)" text-anchor="middle">41%</text>
+        </g>
+        <text x="115" y="238" fill="var(--dim)" font-size="12" font-family="var(--mono)" text-anchor="middle">CPU (1 Kern)</text>
+        <text x="315" y="238" fill="var(--dim)" font-size="12" font-family="var(--mono)" text-anchor="middle">A100</text>
+        <!-- diagonal line from CPU force top to A100 force top, moved to side to avoid bar overlap -->
+        <line x1="160" y1="55" x2="270" y2="133" stroke="var(--coral)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="216" y="143" fill="var(--coral)" font-size="11" font-family="var(--mono)" text-anchor="middle">force 92→48%</text>
+        <rect x="100" y="244" width="10" height="10" fill="var(--blue)"/><text x="114" y="253" fill="var(--dim)" font-size="11" font-family="var(--mono)">force</text>
+        <rect x="160" y="244" width="10" height="10" fill="#7FB2D8"/><text x="174" y="253" fill="var(--dim)" font-size="11" font-family="var(--mono)">Zell-Liste</text>
+        <rect x="250" y="244" width="10" height="10" fill="var(--amber)"/><text x="264" y="253" fill="var(--dim)" font-size="11" font-family="var(--mono)">Integration</text>
+      </svg>
+      <!-- ncu SpeedOfLight -->
+      <svg viewBox="0 0 440 270" style="width:100%;height:auto;max-height:42cqh">
+        <text x="30" y="18" fill="var(--dim)" font-size="12" font-family="var(--mono)">ncu SpeedOfLight — % vom Peak</text>
+        <line x1="55" y1="40" x2="55" y2="228" stroke="rgba(138,149,176,.5)"/>
+        <line x1="55" y1="228" x2="420" y2="228" stroke="rgba(138,149,176,.5)"/>
+        <text x="48" y="232" fill="var(--faint)" font-size="11" font-family="var(--mono)" text-anchor="end">0</text>
+        <text x="48" y="136" fill="var(--faint)" font-size="11" font-family="var(--mono)" text-anchor="end">50</text>
+        <text x="48" y="44" fill="var(--faint)" font-size="11" font-family="var(--mono)" text-anchor="end">100</text>
+        <rect id="sol-t4c" x="85" y="44" width="50" height="184" rx="3" fill="var(--amber)"/>
+        <rect id="sol-t4m" x="142" y="212" width="50" height="16" rx="3" fill="var(--blue)"/>
+        <text x="110" y="37" fill="var(--amber)" font-size="12" font-family="var(--mono)" text-anchor="middle">87%</text>
+        <text x="167" y="204" fill="var(--blue)" font-size="12" font-family="var(--mono)" text-anchor="middle">8%</text>
+        <text x="127" y="246" fill="var(--dim)" font-size="12" font-family="var(--mono)" text-anchor="middle">T4</text>
+        <rect id="sol-a-c" x="270" y="136" width="50" height="92" rx="3" fill="var(--amber)"/>
+        <rect id="sol-a-m" x="328" y="154" width="50" height="74" rx="3" fill="var(--blue)"/>
+        <text x="295" y="128" fill="var(--amber)" font-size="12" font-family="var(--mono)" text-anchor="middle">45%</text>
+        <text x="353" y="146" fill="var(--blue)" font-size="12" font-family="var(--mono)" text-anchor="middle">37%</text>
+        <text x="315" y="246" fill="var(--dim)" font-size="12" font-family="var(--mono)" text-anchor="middle">A100</text>
+        <line x1="55" y1="116" x2="420" y2="116" stroke="var(--coral)" stroke-width="1.4" stroke-dasharray="6 5"/>
+        <text x="420" y="110" fill="var(--coral)" font-size="11" font-family="var(--mono)" text-anchor="end">60 % — unter = latenz-limitiert</text>
+        <rect x="140" y="249" width="11" height="11" rx="2" fill="var(--amber)"/><text x="155" y="259" fill="var(--dim)" font-size="11" font-family="var(--mono)">Compute</text>
+        <rect x="240" y="249" width="11" height="11" rx="2" fill="var(--blue)"/><text x="255" y="259" fill="var(--dim)" font-size="11" font-family="var(--mono)">Memory</text>
+      </svg>
+    </div><!-- end obere Charts -->
+    </div><!-- end inner-pad-top -->
+    <!-- A100 vs T4 Kernel-Zeiten — gemeinsame absolute µs-Skala + A100-Zoom (flex:none, damit volle Breite erhalten bleibt) -->
+    <svg viewBox="0 0 800 84" style="width:80%;height:auto;display:block;flex:none;margin:6px auto 0;align-self:center">
+      <text x="0" y="8" fill="var(--dim)" font-size="9" font-family="var(--mono)" font-weight="600">Zeit pro Schritt · fp64 · N=2 Mio — gemeinsame µs-Skala</text>
+      <text x="0" y="19" fill="var(--ink)" font-size="9" font-family="var(--mono)" font-weight="600">Tesla T4 — 6363 µs</text>
+      <rect x="0" y="22" width="584.2" height="16" rx="2" fill="var(--blue)"/>
+      <rect x="584.2" y="22" width="215.8" height="16" rx="2" fill="rgba(124,148,196,.32)"/>
+      <text x="292.1" y="33.5" fill="#04101f" font-size="11" font-weight="700" font-family="var(--mono)" text-anchor="middle">force 4647 µs (73 %) · compute-bound</text>
+      <text x="692.1" y="33.5" fill="var(--ink)" font-size="9" font-weight="600" font-family="var(--mono)" text-anchor="middle">Sonstige 1716</text>
+      <text x="0" y="50" fill="var(--ink)" font-size="9" font-family="var(--mono)" font-weight="600">NVIDIA A100 — 535 µs</text>
+      <text x="118" y="59" fill="var(--coral)" font-size="9.5" font-weight="700" font-family="var(--mono)">⟵ 11,9× schneller (gleiche Schritte)</text>
+      <rect x="0.0" y="52" width="1.2" height="9" fill="#9AA7B2"/>
+      <rect x="1.2" y="52" width="6.0" height="9" fill="#7FB2D8"/>
+      <rect x="7.1" y="52" width="32.6" height="9" fill="var(--blue)"/>
+      <rect x="39.7" y="52" width="16.7" height="9" fill="var(--amber)"/>
+      <rect x="56.5" y="52" width="10.9" height="9" fill="#a78bfa"/>
+      <rect x="0.0" y="67" width="14.1" height="16" rx="2" fill="#9AA7B2"/>
+      <rect x="14.1" y="67" width="70.7" height="16" fill="#7FB2D8"/>
+      <rect x="84.8" y="67" width="387.2" height="16" fill="var(--blue)"/>
+      <rect x="472.0" y="67" width="198.8" height="16" fill="var(--amber)"/>
+      <rect x="670.8" y="67" width="129.2" height="16" rx="2" fill="#a78bfa"/>
+      <text x="278.4" y="78.5" fill="#04101f" font-size="11" font-weight="700" font-family="var(--mono)" text-anchor="middle">force 259 µs (48 %)</text>
+      <text x="571.4" y="78.5" fill="#0e1320" font-size="9.5" font-weight="700" font-family="var(--mono)" text-anchor="middle">kick_drift 133</text>
+      <text x="735.4" y="78.5" fill="white" font-size="9" font-weight="700" font-family="var(--mono)" text-anchor="middle">kick 87</text>
+    </svg>
+    <div class="s9b-pad">
+    <!-- 2×2 Raster Facts -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-top:8px">
+      <div class="fact"><span class="k" style="font-size:clamp(11px,1.1cqw,13px)">Befund</span><span class="v" style="font-size:clamp(12px,1.2cqw,14px)">Memory 37 % · Compute 45 % → beide &lt; 60 % → <span class="hot">latenz-limitiert</span><small>Occupancy 45 % (ncu) — 62 Register/Thread → 4 Blöcke/SM · L2-Hit 53 %, L1 77 %</small></span></div>
+      <div class="fact"><span class="k" style="font-size:clamp(11px,1.1cqw,13px)">Kernel-Zeiten</span><span class="v" style="font-size:clamp(12px,1.2cqw,14px)"><span class="em">force</span> 259 µs (48 %) · H2D 14 ms<small>force-Bandbreite 586 GB/s = 37,7 % HBM-Peak · Transfer ≈ 1 %</small></span></div>
+      <div class="fact"><span class="k" style="font-size:clamp(11px,1.1cqw,13px)">T4</span><span class="v" style="font-size:clamp(12px,1.2cqw,14px)">force 4647 µs · 19,1 s · Compute 87 % → <span class="hot">compute-bound</span><small>selber Kernel, andere Karte, anderer Engpass</small></span></div>
+      <div class="fact"><span class="k" style="font-size:clamp(11px,1.1cqw,13px)">Speedup</span><span class="v" style="font-size:clamp(12px,1.2cqw,14px)"><span class="hot">731×</span> / <span class="hot">14,3×</span><small>vs 1 EPYC-Kern / vs 64-Kern-Knoten · fp32 nur 1,58× statt 2× → Beweis: nicht rechenlastig</small></span></div>
+    </div>
+    <div class="deshalb"><b>Deshalb:</b> Auch die GPU ist latenz-/speichergebunden — derselbe Engpass wie auf der CPU, nur eine Ebene tiefer. Dass fp32 nur 1,58× statt 2× bringt, ist der direkte Beweis.</div>
+    </div><!-- end inner-pad-bottom -->
+  </section>
+
+  <section class="slide" id="s_gpuopt" style="justify-content:center;padding-top:clamp(36px,3.5cqh,60px);padding-bottom:clamp(36px,3.5cqh,60px)">
+    <div class="eyebrow"><span class="num"></span> GPU-Optimierung</div>
+    <h2>Zwei Hebel getestet — beide zeigen auf <span class="hl">dieselbe Wand</span></h2>
+    <div class="body">
+      <!-- LINKS: Schemazeichnungen -->
+      <div class="col">
+        <!-- (1) launch_bounds -->
+        <div class="mech">
+          <h3><span class="tag">1</span> Occupancy hochdrücken &nbsp;·&nbsp; <span style="font-family:var(--mono);font-size:1.7cqh">__launch_bounds__</span></h3>
+          <svg viewBox="0 0 520 118" xmlns="http://www.w3.org/2000/svg">
+            <text x="70" y="14" text-anchor="middle" class="lbl">base · 62 Reg/Thread</text>
+            <rect x="30" y="22" width="80" height="82" rx="6" fill="none" stroke="#3a4666" stroke-width="1.5"/>
+            <rect x="30" y="62" width="80" height="42" rx="0" fill="#5b9dff" opacity="0.30"/>
+            <rect x="30" y="98" width="80" height="6" rx="0" fill="#5b9dff" opacity="0.30"/>
+            <line x1="30" y1="76" x2="110" y2="76" stroke="#5b9dff" stroke-width="0.6" opacity="0.4"/>
+            <line x1="30" y1="90" x2="110" y2="90" stroke="#5b9dff" stroke-width="0.6" opacity="0.4"/>
+            <text x="70" y="52" text-anchor="middle" class="lblb" style="font-size:1.9cqh;font-weight:600">45%</text>
+            <text x="70" y="116" text-anchor="middle" class="lbl">SM · Warps</text>
+            <path d="M150 63 h70" stroke="#8a95b0" stroke-width="1.5" marker-end="url(#ah)"/>
+            <text x="185" y="52" text-anchor="middle" class="lbla">Reg 62→40</text>
+            <text x="185" y="80" text-anchor="middle" class="lbl">mehr Warps</text>
+            <text x="300" y="14" text-anchor="middle" class="lbl">lb · 40 Reg/Thread</text>
+            <rect x="260" y="22" width="80" height="82" rx="6" fill="none" stroke="#3a4666" stroke-width="1.5"/>
+            <rect x="260" y="42" width="80" height="62" rx="0" fill="#5b9dff" opacity="0.42"/>
+            <line x1="260" y1="56" x2="340" y2="56" stroke="#5b9dff" stroke-width="0.6" opacity="0.4"/>
+            <line x1="260" y1="70" x2="340" y2="70" stroke="#5b9dff" stroke-width="0.6" opacity="0.4"/>
+            <line x1="260" y1="84" x2="340" y2="84" stroke="#5b9dff" stroke-width="0.6" opacity="0.4"/>
+            <text x="300" y="38" text-anchor="middle" class="lblb" style="font-size:1.9cqh;font-weight:600">66%</text>
+            <text x="430" y="46" text-anchor="middle" class="lbl">k_force-Zeit</text>
+            <text x="430" y="70" text-anchor="middle" style="font-family:var(--display);font-size:2.2cqh;font-weight:600;fill:#ffc24d">309 µs</text>
+            <text x="430" y="90" text-anchor="middle" class="lbl">unverändert</text>
+            <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#8a95b0"/></marker></defs>
+          </svg>
+          <div class="cap">Weniger Register → mehr Warps passen in den SM. Occupancy steigt <b style="color:var(--blue)">45→66 %</b> — die Kernel-Zeit bleibt gleich.</div>
+        </div>
+        <!-- (2) CUDA Graphs -->
+        <div class="mech">
+          <h3><span class="tag">2</span> Launch-Overhead sparen &nbsp;·&nbsp; CUDA&nbsp;Graphs</h3>
+          <svg viewBox="0 0 520 96" xmlns="http://www.w3.org/2000/svg">
+            <text x="24" y="24" class="lbl">ohne</text>
+            <rect x="24" y="30" width="46" height="26" rx="5" fill="#121829" stroke="#3a4666"/>
+            <text x="47" y="47" text-anchor="middle" class="lbl">CPU</text>
+            <g stroke="#ff6f4d" stroke-width="1.4" fill="none" opacity="0.85">
+              <path d="M72 34 h150" marker-end="url(#ac)"/>
+              <path d="M72 39 h150" marker-end="url(#ac)"/>
+              <path d="M72 44 h150" marker-end="url(#ac)"/>
+              <path d="M72 49 h150" marker-end="url(#ac)"/>
+              <path d="M72 54 h150" marker-end="url(#ac)"/>
+            </g>
+            <text x="147" y="24" text-anchor="middle" class="lbl" fill="#ff6f4d">5 Starts / Schritt</text>
+            <rect x="222" y="30" width="52" height="26" rx="5" fill="#121829" stroke="#3a4666"/>
+            <text x="248" y="47" text-anchor="middle" class="lbl">GPU</text>
+            <text x="24" y="80" class="lbl">mit</text>
+            <rect x="24" y="66" width="46" height="26" rx="5" fill="#121829" stroke="#3a4666"/>
+            <text x="47" y="83" text-anchor="middle" class="lbl">CPU</text>
+            <path d="M72 79 h150" stroke="#5b9dff" stroke-width="2.6" fill="none" marker-end="url(#ab)"/>
+            <text x="146" y="73" text-anchor="middle" class="lblb">1 Start (replay)</text>
+            <rect x="222" y="66" width="174" height="26" rx="5" fill="#121829" stroke="#5b9dff"/>
+            <text x="309" y="83" text-anchor="middle" class="lblb">5 Kernel als 1 Graph</text>
+            <defs>
+              <marker id="ac" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0 0 L5 3 L0 6 z" fill="#ff6f4d"/></marker>
+              <marker id="ab" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#5b9dff"/></marker>
+            </defs>
+          </svg>
+          <div class="cap">Feste 5-Kernel-Sequenz <b>einmal aufnehmen</b>, pro Schritt mit einem Aufruf abspielen — spart den Host-Start-Overhead.</div>
+        </div>
+      </div>
+      <!-- RECHTS: Ergebnisse -->
+      <div class="col">
+        <div class="res">
+          <h3>Ergebnis · fp64 · 2 Mio Atome · A100</h3>
+          <div class="statlist">
+            <div class="stat">
+              <span class="lab">Occupancy (launch_bounds, ncu)</span>
+              <span class="val"><span class="up">45 %<span class="arrow">→</span>66 %</span></span>
+            </div>
+            <div class="divider"></div>
+            <div class="stat">
+              <span class="lab">k_force-Laufzeit dabei</span>
+              <span class="val">309 µs <span class="arrow">→</span> 307 µs &nbsp;<span class="flat">flach</span></span>
+            </div>
+            <div class="divider"></div>
+            <div class="stat">
+              <span class="lab">CUDA Graphs · Durchsatz</span>
+              <span class="val">3808 <span class="arrow">→</span> 3847 Matom/s &nbsp;<span class="up">+1 %</span></span>
+            </div>
+            <div class="divider"></div>
+            <div class="stat">
+              <span class="lab">Energie-Drift (Korrektheit)</span>
+              <span class="val" style="font-size:2.1cqh">alle Varianten identisch</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="deshalb"><b>Deshalb:</b> Occupancy deutlich erhöht (45→66 %) — Kernel-Zeit unverändert. Launch-Overhead entfernt — nur +1 %. Weder Auslastung noch Kernel-Starts limitieren. Es bleibt die <span class="hot">Speicher-Latenz &amp; Bandbreite</span> — derselbe Engpass wie bei CPU und Skalierung.</div>
+  </section>
+
+  <section class="slide" id="s10a">
+    <div class="eyebrow"><span class="num"></span> Fazit</div>
+    <h2>Was wir gelernt haben</h2>
+    <div style="display:grid;grid-template-columns:1fr 0.85fr;gap:24px;align-items:start;margin-top:6px">
+      <div class="facts alignk">
+        <div class="fact"><span class="k">Problem</span><span class="v">Verzweigende Kollisionskaskade, parallel gelöst<small>Ensemble liefert ein Power Law F(n) ∝ n⁻ˢ, S ≈ 1,38–1,41</small></span></div>
+        <div class="fact"><span class="k">Parallel</span><span class="v">1D-Zerlegung mit Halo + Migration<small>per <code>decomp_harness</code> bitidentisch unabhängig von der Rangzahl — Korrektheit vor Skalierung</small></span></div>
+        <div class="fact"><span class="k">Skalierung</span><span class="v">Strong Scaling U-förmig → <span class="cool">superlinear (133 %)</span><small>der Code ist <span class="hot">speicherbandbreiten-limitiert</span></small></span></div>
+        <div class="fact"><span class="k">GPU</span><span class="v">A100: <span class="hot">731×</span> vs 1 Kern, 14,3× vs Knoten<small>T4 compute-bound, A100 latenz-limitiert (Occupancy als Ursache widerlegt) — derselbe Kernel, andere Engpässe</small></span></div>
+      </div>
+      <!-- Power-Law-Graph — identisch zu Folie 1 (CCDF) -->
+      <div>
+        <svg viewBox="0 0 460 320" style="width:100%;height:auto;max-height:42cqh"><text x="58" y="20" fill="var(--dim)" font-size="13" font-family="var(--mono)">Cluster-CCDF — 1000 Kaskaden, 2391 Cluster</text>
+        <!-- y-Gitter + Labels (P = 10^0 .. 10^-3) -->
+        <line x1="58" y1="40" x2="442" y2="40" stroke="rgba(124,148,196,.10)"/><text x="52" y="43" fill="var(--faint)" font-size="10" font-family="var(--mono)" text-anchor="end">10⁰</text>
+        <line x1="58" y1="118" x2="442" y2="118" stroke="rgba(124,148,196,.10)"/><text x="52" y="121" fill="var(--faint)" font-size="10" font-family="var(--mono)" text-anchor="end">10⁻¹</text>
+        <line x1="58" y1="196" x2="442" y2="196" stroke="rgba(124,148,196,.10)"/><text x="52" y="199" fill="var(--faint)" font-size="10" font-family="var(--mono)" text-anchor="end">10⁻²</text>
+        <line x1="58" y1="274" x2="442" y2="274" stroke="rgba(124,148,196,.10)"/><text x="52" y="277" fill="var(--faint)" font-size="10" font-family="var(--mono)" text-anchor="end">10⁻³</text>
+        <!-- x-Gitter + Labels (n = 1 .. 1000) -->
+        <line x1="58" y1="40" x2="58" y2="274" stroke="rgba(124,148,196,.10)"/><text x="58" y="288" fill="var(--faint)" font-size="10.5" font-family="var(--mono)" text-anchor="middle">1</text>
+        <line x1="167.7" y1="40" x2="167.7" y2="274" stroke="rgba(124,148,196,.10)"/><text x="167.7" y="288" fill="var(--faint)" font-size="10.5" font-family="var(--mono)" text-anchor="middle">10</text>
+        <line x1="277.4" y1="40" x2="277.4" y2="274" stroke="rgba(124,148,196,.10)"/><text x="277.4" y="288" fill="var(--faint)" font-size="10.5" font-family="var(--mono)" text-anchor="middle">100</text>
+        <line x1="387.1" y1="40" x2="387.1" y2="274" stroke="rgba(124,148,196,.10)"/><text x="387.1" y="288" fill="var(--faint)" font-size="10.5" font-family="var(--mono)" text-anchor="middle">1000</text>
+        <!-- Achsen -->
+        <line x1="58" y1="40" x2="58" y2="274" stroke="rgba(138,149,176,.5)"/><line x1="58" y1="274" x2="442" y2="274" stroke="rgba(138,149,176,.5)"/>
+        <!-- xmin-Marker -->
+        <line x1="124.1" y1="40" x2="124.1" y2="274" stroke="rgba(138,149,176,.35)" stroke-dasharray="3 4"/><text x="128" y="52" fill="var(--faint)" font-size="12" font-family="var(--mono)">x<tspan baseline-shift="sub" font-size="9">min</tspan>=4</text>
+        <text x="128" y="64" fill="var(--faint)" font-size="9.5" font-family="var(--mono)">Fit nur ab n ≥ 4</text>
+        <!-- Sand 2013 Referenz S=1,63 (steiler) -->
+        <line x1="124.1" y1="65.6" x2="437.0" y2="205.8" stroke="rgba(138,149,176,.7)" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <!-- MLE-Fit-Gerade S=1,41 -->
+        <line x1="124.1" y1="65.6" x2="437.0" y2="156.8" stroke="var(--coral)" stroke-width="2"/>
+        <!-- Gemessene CCDF-Daten (Kurve) -->
+        <polyline points="58.0,40.0 91.0,55.7 110.3,60.3 124.1,65.6 143.4,71.0 167.7,77.6 200.7,83.7 233.8,90.5 260.4,96.3 277.4,100.4 310.5,107.1 343.5,114.2 370.1,120.8 387.1,126.4 406.5,136.5 420.2,149.0 426.8,169.3 430.8,196.0 434.5,231.6 437.0,270.8" fill="none" stroke="var(--blue)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <!-- Annotationen -->
+        <text x="416" y="100" fill="var(--coral)" font-size="12" font-family="var(--mono)" text-anchor="end">F(n) ∝ n<tspan baseline-shift="super" font-size="9">−S</tspan></text>
+        <text x="416" y="82" fill="var(--blue)" font-size="12" font-family="var(--mono)" text-anchor="end">Finite-Size-Cutoff ↘</text>
+        <!-- Legende unten links -->
+        <rect x="62" y="216" width="14" height="3" fill="var(--blue)"/><text x="80" y="220" fill="var(--dim)" font-size="10" font-family="var(--mono)">Daten · CCDF P(N≥n)</text>
+        <rect x="62" y="230" width="14" height="3" fill="var(--coral)"/><text x="80" y="234" fill="var(--dim)" font-size="10" font-family="var(--mono)">MLE-Fit: S=1,41 (Heal) / 1,38 (no heal)</text>
+        <rect x="62" y="244" width="14" height="3" fill="rgba(138,149,176,.7)"/><text x="80" y="248" fill="var(--dim)" font-size="10" font-family="var(--mono)">Sand 2013: S=1,63 (3D-W)</text>
+        <text x="250" y="306" fill="var(--dim)" font-size="11" font-family="var(--mono)" text-anchor="middle">Clustergröße n (log)</text>
+        <text x="18" y="157" fill="var(--dim)" font-size="11" font-family="var(--mono)" text-anchor="middle" transform="rotate(-90 18 157)">P(N ≥ n) (log)</text></svg>
+      </div>
+    </div>
+    <div class="deshalb"><b>Kern-Einsicht:</b> Derselbe force-Kernel, drei Karten, drei Engpässe — und doch eine Lektion: <span style="color:var(--amber)">Speicherbandbreite ist überall das Limit.</span> Warum? <span style="color:var(--dim)">76 B/Atom × 2 Mio. = 152 MB Working Set, kein Cache hält das — pro Schritt muss die gesamte Datenmenge durch den Speicher. Selbst HBM schafft nur 37 % Peak.</span></div>
+  </section>
+
+  <section class="slide" id="s10b">
+    <div class="eyebrow"><span class="num"></span> Offene Fragen</div>
+    <h2>Was bei größeren Systemen?</h2>
+    <div style="display:grid;grid-template-columns:1fr 0.52fr;gap:26px;align-items:start;margin-top:8px">
+      <div class="facts alignk">
+        <div class="fact"><span class="k">Zerlegung</span><span class="v">2D/3D statt 1D<small>bei sehr vielen Rängen wächst das Halo relativ zur Rechnung — 2D/3D verbessert Oberfläche-zu-Volumen</small></span></div>
+        <div class="fact"><span class="k">Überlappen</span><span class="v">Kommunikation hinter Rechnung verstecken<small>non-blocking Halo starten, Inneres rechnen, während Geister unterwegs sind</small></span></div>
+        <div class="fact"><span class="k">Multi-GPU</span><span class="v">CUDA-aware MPI, Halo direkt GPU↔GPU<small>kein Umweg über den Host — nächster Schritt jenseits einer A100</small></span></div>
+        <div class="fact"><span class="k">Last</span><span class="v">dynamische Balance bei inhomogenen Kaskaden<small>Schaden konzentriert sich lokal — statische Streifen werden ungleich ausgelastet</small></span></div>
+        <div class="fact"><span class="k">Bandbreite</span><span class="v">gemischte Präzision · Kernel fusionieren · Cache-Blocking<small>fp32 bringt 1,58× — weniger Durchgänge über das Working Set helfen mehr als Rechenoptimierung</small></span></div>
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:clamp(8.6px, 0.88cqw, 11px);color:var(--dim);margin-bottom:6px">Live-Kaskade — drücke <b style="color:var(--coral)">R</b> zum Neustart</div>
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:rgba(91,157,255,.04);border:1px solid var(--line)">
+          <canvas id="oq-cascade" style="width:100%;aspect-ratio:1/1;display:block"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" id="s10">
+    <div class="eyebrow">Danke</div>
+    <h1>Fragen?</h1>
+    <div class="archline">Modell <b>→</b> MPI <b>→</b> <span class="c">Strong Scaling</span> <b>→</b> Engpass: Bandbreite <b>→</b> <span class="c">CUDA</span></div>
+  </section>
+
+  <button class="nav-arrow" id="prev" aria-label="zurück">‹</button>
+  <button class="nav-arrow" id="next" aria-label="weiter">›</button>
+  <div id="dots"></div>
+  <div id="counter"><b id="cur">01</b> / <span id="tot">11</span></div>
+</div>
+
+<div id="poverlay" class="poverlay hidden">
+  <div class="pmodal">
+    <button class="pclose" id="pclose">×</button>
+    <h3 id="ptitle"></h3>
+    <canvas id="pbig"></canvas>
+    <div id="plegend"></div>
+    <div class="pinfo"><p id="ptext"></p></div>
+  </div>
+</div>
+
+<script>
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const slides=[...document.querySelectorAll('.slide')];
+const N=slides.length;let i=0;
+const dotsWrap=document.getElementById('dots');
+slides.forEach((_,k)=>{const b=document.createElement('button');b.onclick=()=>go(k);dotsWrap.appendChild(b);});
+const dots=[...dotsWrap.children];
+document.getElementById('tot').textContent=String(N).padStart(2,'0');
+document.querySelectorAll('.eyebrow .num').forEach((el,k)=>el.textContent=String(k+1).padStart(2,'0'));
+
+/* ===== timeline (Abschnitts-Leiste oben) ===== */
+const SECTIONS=[
+  {label:'Modell',start:1},
+  {label:'MPI',start:4},
+  {label:'Scaling',start:6},
+  {label:'Engpass',start:7},
+  {label:'GPU',start:8},
+  {label:'Fazit',start:12},
+];
+const tlWrap=document.getElementById('timeline');
+SECTIONS.forEach((s,k)=>{const seg=document.createElement('div');seg.className='tl-seg';seg.dataset.idx=k;
+  seg.innerHTML='<div class="lbl">'+s.label+'</div>';
+  seg.onclick=()=>go(s.start);tlWrap.appendChild(seg);});
+const tlSegs=[...tlWrap.children];
+function updateTimeline(){
+  const tl=document.getElementById('timeline');
+  if(i===0){tl.classList.add('tl-hide');return;}
+  tl.classList.remove('tl-hide');
+  let active=0;
+  for(let k=SECTIONS.length-1;k>=0;k--){if(i>=SECTIONS[k].start){active=k;break;}}
+  tlSegs.forEach((seg,k)=>{seg.classList.toggle('active',k===active);seg.classList.toggle('done',k<active);});
+}
+
+function revealBars(ids,axis,stagger){ids.forEach((id,i)=>{const el=document.getElementById(id);if(!el)return;
+  el.style.transformBox='fill-box';el.style.transformOrigin=(axis==='x')?'left center':'center bottom';
+  if(reduce)return;
+  el.animate([{transform:(axis==='x')?'scaleX(0)':'scaleY(0)'},{transform:'scale(1)'}],{duration:680,delay:i*stagger,easing:'cubic-bezier(.2,.7,.3,1)',fill:'backwards'});});}
+function revealTTS(){revealBars(['tts0','tts1','tts4','tts2','tts3'],'x',110);}
+function revealNcu(){revealBars(['ncu-hg-cpu','ncu-hg-a100'],'y',150);revealBars(['sol-t4c','sol-t4m','sol-a-c','sol-a-m'],'y',80);}
+function revealHot(){revealBars(['hotg-cpu','hotg-a100'],'y',160);}
+function revealCache(){
+  const mb=document.getElementById('cache-mb'),eff=document.getElementById('cache-eff'),cr=document.getElementById('cache-cross');
+  if(!mb||!eff)return;
+  const Lm=(mb.getTotalLength?mb.getTotalLength():700),Le=(eff.getTotalLength?eff.getTotalLength():700);
+  mb.style.transition='none';eff.style.transition='none';
+  mb.style.strokeDasharray=Lm;mb.style.strokeDashoffset=Lm;
+  eff.style.strokeDasharray=Le;eff.style.strokeDashoffset=Le;
+  if(cr){cr.style.opacity='0';cr.style.transformBox='fill-box';cr.style.transformOrigin='center';}
+  if(reduce){mb.style.strokeDashoffset='0';eff.style.strokeDashoffset='0';if(cr)cr.style.opacity='1';return;}
+  mb.getBoundingClientRect();
+  requestAnimationFrame(()=>{
+    mb.style.transition='stroke-dashoffset 1.2s ease';mb.style.strokeDashoffset='0';
+    eff.style.transition='stroke-dashoffset 1.2s ease 0.25s';eff.style.strokeDashoffset='0';});
+  setTimeout(()=>{if(cr){cr.style.opacity='1';if(cr.animate)cr.animate([{transform:'scale(1)'},{transform:'scale(1.9)'},{transform:'scale(1)'}],{duration:750,easing:'ease-out'});}},980);
+}
+const oqCv=document.getElementById('oq-cascade');
+let oqCascade=null;
+function initOqCascade(){if(!oqCv||oqCascade)return;oqCascade=makeCascade(oqCv,()=>[{x:0.5,y:0.5}],{sDiv:28,sMin:14,sMax:22,decay:0.989,grow:5000,slow:1,rate:0.25,calm:false});}
+function startOqCascade(){initOqCascade();if(oqCascade){oqCascade.p.onDone=()=>{setTimeout(()=>oqCascade.start(true),600);};oqCascade.start(true);}}
+function stopOqCascade(){if(oqCascade)oqCascade.stop();}
+function startPlFit(){const a1=document.getElementById('pl-anim-1'),a2=document.getElementById('pl-anim-2');if(a1)a1.beginElement();if(a2)a2.beginElement();}
+function resetPlFit(){const l=document.getElementById('pl-fit');if(!l)return;l.style.opacity='0';l.style.strokeDashoffset='200';}
+const onEnter={s0:()=>heroStart(),s2:()=>startModel(),s3:()=>feat.start(true),s4:()=>{decomp.rebuild();decomp.start();},
+  s6:()=>strongGrid.animate(),s7:()=>weakGrid.animate(),s8eng:()=>revealCache(),s_tts:()=>revealTTS(),s9b:()=>revealNcu(),s10a:()=>startPlFit(),s10b:()=>startOqCascade()};
+const onLeave={s0:()=>heroStop(),s2:()=>stopModel(),s3:()=>feat.stop(),s4:()=>decomp.stop(),s10a:()=>resetPlFit(),s10b:()=>stopOqCascade()};
+
+function go(n){
+  n=Math.max(0,Math.min(N-1,n));
+  const oldId=slides[i].id;
+  slides[i].classList.remove('active');
+  i=n;
+  slides.forEach((s,k)=>s.classList.toggle('past',k<i));
+  slides[i].classList.add('active');
+  slides[i].style.transform='';                 // sauberer Eingang, Auto-Fit folgt nach dem Layout
+  dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+  document.getElementById('cur').textContent=String(i+1).padStart(2,'0');
+  updateTimeline();
+  if(onLeave[oldId]&&oldId!==slides[i].id)onLeave[oldId]();
+  if(onEnter[slides[i].id])onEnter[slides[i].id]();
+  const cur=slides[i];setTimeout(()=>fitSlide(cur),90);
+}
+/* ===== Auto-Fit: überlaufende Folien exakt ins 16:9-Deck skalieren =====
+   Skaliert NUR herunter und NUR wenn der Inhalt wirklich höher ist als das
+   Deck. Passt alles (z. B. auf 16:10), passiert nichts. */
+const CHROME_TOP=40, CHROME_BOT=52;   // px: Höhe von Timeline (oben) bzw. Punkte/Counter (unten)
+function fitSlide(sl){
+  if(!sl)return;
+  const tr=sl.style.transition;
+  sl.style.transition='none';                     // Messung nicht durch die laufende Transform-Transition verfälschen
+  sl.style.transform='';
+  const deckH=sl.clientHeight;
+  const safeTop=CHROME_TOP, safeBot=deckH-CHROME_BOT, safeH=safeBot-safeTop;
+  const r0=sl.getBoundingClientRect();
+  let top=Infinity, bot=-Infinity;
+  sl.querySelectorAll(':scope > *').forEach(el=>{
+    if(el.id==='timeline'||el.id==='buildtag')return;
+    if(getComputedStyle(el).position==='absolute')return;   // Vollflächen-Hintergründe (Canvas) nicht mitmessen
+    const r=el.getBoundingClientRect();
+    if(r.height<1)return;
+    const t=r.top-r0.top, b=r.bottom-r0.top;
+    if(t<top)top=t; if(b>bot)bot=b;
+  });
+  if(isFinite(top)){
+    const C=bot-top;
+    if(top<safeTop-0.5 || bot>safeBot+0.5){                  // ragt in Timeline- oder Punkte-Zone
+      const k=Math.min(1, safeH/C);                          // ggf. verkleinern
+      const ty=(safeTop+(safeH-k*C)/2)-k*top;                // Inhalt mittig ins sichere Band schieben
+      sl.style.transformOrigin='50% 0';
+      sl.style.transform='translateY('+ty+'px) scale('+k+')';
+    }
+  }
+  sl.getBoundingClientRect();
+  requestAnimationFrame(()=>{sl.style.transition=tr;});
+}
+function fitActive(){fitSlide(slides[i]);}
+const next=()=>go(i+1),prev=()=>go(i-1);
+document.getElementById('next').onclick=next;document.getElementById('prev').onclick=prev;
+addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closePanel();return;}
+  if(!document.getElementById('poverlay').classList.contains('hidden'))return;
+  if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();next();}
+  else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();prev();}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(N-1);
+  else if(e.key==='r'||e.key==='R'){const id=slides[i].id;if(id==='s0')heroStart();if(id==='s2')modelCascade.start(true);if(id==='s3')feat.start(true);if(id==='s10b'&&oqCascade)oqCascade.start(true);}
+});
+let tx=0;addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+addEventListener('touchend',e=>{const d=e.changedTouches[0].clientX-tx;if(Math.abs(d)>50){d<0?next():prev();}});
+
+/* ambient lattice */
+const bg=document.getElementById('lattice-bg'),bx=bg.getContext('2d');
+function drawLattice(){const w=bg.width=innerWidth,h=bg.height=innerHeight,s=46,dy=s*0.866;
+  bx.clearRect(0,0,w,h);bx.fillStyle='rgba(124,148,196,.18)';
+  for(let r=0,y=0;y<h+s;r++,y+=dy){const off=(r%2)*s/2;
+    for(let x=-s;x<w+s;x+=s){bx.beginPath();bx.arc(x+off,y,1.1,0,7);bx.fill();}}}
+drawLattice();
+
+/* ===== reusable cascade ===== */
+function makeCascade(canvas,seedsFn,opts){
+  if(!canvas)return{start(){},stop(){},rebuild(){},p:{}};  // Folie nicht in diesem Deck -> No-op-Stub
+  const p=Object.assign({sDiv:34,sMin:16,sMax:30,decay:0.988,grow:4000,slow:1,rate:0.26,calm:false,onDone:null},opts||{});const cx=canvas.getContext('2d');
+  let nodes=[],bonds=[],adj=[],raf=null,t0=0,running=false,frozen=false,initE=1,S=20,fc=0;
+  function build(){
+    const w=canvas.width=canvas.offsetWidth,h=canvas.height=canvas.offsetHeight;
+    const s=Math.max(p.sMin,Math.min(p.sMax,w/p.sDiv));S=s;const dy=s*0.866;nodes=[];const rows=[];
+    for(let r=0,y=dy;y<h-6;r++,y+=dy){const off=(r%2)*s/2;const row=[];
+      for(let x=s*0.6;x<w-s*0.4;x+=s){row.push(nodes.length);
+        nodes.push({x:x+off,y,hx:x+off,hy:y,e:0,ph:Math.random()*6.28,dmg:0,ox:0,oy:0});}
+      rows.push(row);}
+    adj=nodes.map(()=>[]);bonds=[];
+    const tryB=(a,b)=>{if(b===undefined)return;
+      const d=Math.hypot(nodes[a].hx-nodes[b].hx,nodes[a].hy-nodes[b].hy);
+      if(d<s*1.15){const bd={a,b,broken:0};bonds.push(bd);
+        adj[a].push({j:b,b:bd});adj[b].push({j:a,b:bd});}};
+    for(let ri=0;ri<rows.length;ri++){const row=rows[ri];
+      for(let ci=0;ci<row.length;ci++){const a=row[ci];tryB(a,row[ci+1]);
+        if(ri+1<rows.length){const up=rows[ri+1];tryB(a,up[ci-1]);tryB(a,up[ci]);tryB(a,up[ci+1]);}}}
+    initE=0;
+    seedsFn().forEach(sd=>{let best=0,bd=1e9;
+      nodes.forEach((n,k)=>{const d=Math.hypot(n.hx-sd.x*w,n.hy-sd.y*h);if(d<bd){bd=d;best=k;}});
+      nodes[best].e=2.6;initE+=2.6;});
+    frozen=false;
+  }
+  function step(){
+    const add=new Float32Array(nodes.length);
+    // diskrete Knock-ons: jedes heisse Atom stoesst 1-2 ZUFAELLIGE Nachbarn
+    // (kein gleichmaessiges Diffundieren -> asymmetrische, verzweigte Cluster)
+    for(let k=0;k<nodes.length;k++){
+      const e=nodes[k].e;if(e<0.08)continue;const A=adj[k];if(!A.length)continue;
+      const kicks=e>0.7?2:1;
+      for(let t=0;t<kicks;t++){
+        const ent=A[(Math.random()*A.length)|0],tr=e*p.rate;
+        add[k]-=tr;add[ent.j]+=tr*0.94;
+        // Bindung reisst bevorzugt bei hoher Energie -> zusammenhaengende Schadenscluster
+        if(e>0.40&&!ent.b.broken&&Math.random()<0.11){ent.b.broken=1;
+          for(const m of [k,ent.j]){const a=Math.random()*6.28,mg=S*0.10+Math.random()*S*0.16;
+            nodes[m].dmg=1;nodes[m].ox+=Math.cos(a)*mg;nodes[m].oy+=Math.sin(a)*mg;}}
+      }
+    }
+    const now=performance.now()*0.006;
+    nodes.forEach((n,k)=>{n.e=Math.max(0,(n.e+add[k])*p.decay);const bx=n.hx+n.ox,by=n.hy+n.oy;
+      if(p.calm){n.x+=(bx-n.x)*0.25;n.y+=(by-n.y)*0.25;}
+      else{const amp=n.e*S*0.38;n.x=bx+Math.cos(n.ph+now)*amp+(Math.random()-.5)*n.e*S*0.10;n.y=by+Math.sin(n.ph+now)*amp+(Math.random()-.5)*n.e*S*0.10;}});
+  }
+  function render(){const w=canvas.width,h=canvas.height;cx.clearRect(0,0,w,h);
+    for(const bd of bonds){if(bd.broken)continue;const a=nodes[bd.a],b=nodes[bd.b],e=(a.e+b.e)/2;
+      cx.strokeStyle=e>0.12?`rgba(255,111,77,${Math.min(.7,e)})`:`rgba(91,157,255,${.06+e})`;
+      cx.lineWidth=e>0.4?1.6:.8;cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(b.x,b.y);cx.stroke();}
+    for(const n of nodes){const e=n.e;let col,r=1.6;
+      if(e<.05){if(n.dmg){col='rgba(255,120,86,.9)';r=2.5;}else col='rgba(91,157,255,.5)';}
+      else if(e<.4){col=`rgba(255,140,90,${.5+e})`;r=2+e*3;}
+      else{col=`rgba(255,205,100,${.7+e*.3})`;r=2.5+e*4;}
+      if(e>.2){cx.shadowBlur=14;cx.shadowColor=e>.4?'#ffc24d':'#ff6f4d';}else cx.shadowBlur=0;
+      cx.fillStyle=col;cx.beginPath();cx.arc(n.x,n.y,r,0,7);cx.fill();}
+    cx.shadowBlur=0;}
+  function frame(ts){if(!running)return;if((fc++%p.slow)===0)step();render();
+    const tot=nodes.reduce((a,n)=>a+n.e,0),el=ts-t0;
+    if(el>p.grow||(el>2500&&tot<0.05*initE)){frozen=true;running=false;render();if(p.onDone)p.onDone();return;}
+    raf=requestAnimationFrame(frame);}
+  return{start(force){
+      if(reduce){if(force||!nodes.length)build();render();return;}   // reduce-motion: statischer Frame statt leer
+      if(force||!nodes.length||frozen){build();t0=performance.now();}
+      if(!running){running=true;raf=requestAnimationFrame(frame);}},
+    stop(){running=false;if(raf)cancelAnimationFrame(raf);raf=null;},
+    rebuild(){build();t0=performance.now();if(reduce)render();},p};
+}
+const hero=makeCascade(document.getElementById('cascade'),()=>[{x:0.10,y:0.22}],{grow:2400,decay:0.984,slow:1,rate:0.27});
+let heroOn=false,heroTimer=null;
+hero.p.onDone=()=>{if(heroOn){heroTimer=setTimeout(()=>{if(heroOn)hero.start(true);},420);}};
+function heroStart(){heroOn=true;if(heroTimer){clearTimeout(heroTimer);heroTimer=null;}hero.start(true);}
+function heroStop(){heroOn=false;if(heroTimer){clearTimeout(heroTimer);heroTimer=null;}hero.stop();}
+
+/* ===== Modell-Folie: langsame Dauerschleife mit wechselnden PKAs ===== */
+let modelCfg={n:1,cx:0.5,cy:0.5,spread:0.30};
+function modelSeeds(){const a=[];
+  if(modelCfg.n===1){a.push({x:modelCfg.cx,y:modelCfg.cy});}
+  else{for(let k=0;k<modelCfg.n;k++){const th=k/modelCfg.n*6.283+Math.random()*0.5;
+    a.push({x:0.5+modelCfg.spread*Math.cos(th)+(Math.random()-.5)*0.06,
+            y:0.5+modelCfg.spread*Math.sin(th)+(Math.random()-.5)*0.06});}}
+  return a;}
+const modelCascade=makeCascade(document.getElementById('model-cv'),modelSeeds,
+  {sDiv:22,sMin:20,sMax:34,decay:0.995,grow:5000,slow:2,rate:0.10,calm:true});
+const MODEL_CFGS=[
+  {n:1,cx:0.5,cy:0.5,grow:5000,decay:0.995,slow:2,rate:0.10,cap:'1 PKA · zentral'},
+  {n:1,cx:0.34,cy:0.42,grow:5000,decay:0.995,slow:2,rate:0.11,cap:'1 PKA · außermittig'},
+  {n:3,grow:5000,decay:0.995,spread:0.26,slow:2,rate:0.11,cap:'3 PKAs · verteilt'},
+  {n:8,grow:5000,decay:0.994,spread:0.32,slow:2,rate:0.12,cap:'8 PKAs · im Kreis'},
+  {n:5,grow:5000,decay:0.995,spread:0.28,slow:2,rate:0.11,cap:'5 PKAs · zufällig'}];
+let modelIdx=0,modelTimer=null,modelOn=false;
+function nextModel(){const c=MODEL_CFGS[modelIdx%MODEL_CFGS.length];modelIdx++;
+  modelCfg={n:c.n,cx:c.cx!==undefined?c.cx:0.5,cy:c.cy!==undefined?c.cy:0.5,spread:c.spread!==undefined?c.spread:0.30};
+  modelCascade.p.grow=c.grow;modelCascade.p.decay=c.decay;modelCascade.p.slow=c.slow;modelCascade.p.rate=c.rate;
+  const cap=document.getElementById('model-cap');if(cap)cap.innerHTML=c.cap;
+  modelCascade.start(true);}
+modelCascade.p.onDone=()=>{if(modelOn)modelTimer=setTimeout(nextModel,400);};
+function startModel(){modelOn=true;modelIdx=0;nextModel();}  // reduce-motion: nextModel->start() rendert statisch
+function stopModel(){modelOn=false;if(modelTimer){clearTimeout(modelTimer);modelTimer=null;}modelCascade.stop();}
+
+/* feature: two configs */
+function ring(n){const a=[];for(let k=0;k<n;k++){const th=k/n*6.283;
+  a.push({x:0.5+0.30*Math.cos(th),y:0.5+0.30*Math.sin(th)});}return a;}
+let featCfg='single';
+const feat=makeCascade(document.getElementById('feat-cv'),
+  ()=>featCfg==='single'?[{x:0.5,y:0.5}]:ring(8),{sDiv:16,sMin:36,sMax:56,decay:0.992,grow:7000});
+const paramsSingle=
+'<span class="sec">[pka]</span>\n<span class="key">n_pka</span>      = 1\n<span class="key">pka_x</span>      = 0.5\n<span class="key">pka_y</span>      = 0.5\n<span class="key">pka_energy</span> = 5000';
+const paramsRing=
+'<span class="sec">[pka]</span>\n<span class="key">n_pka</span> = 8\n<span class="sec">[pka1]</span>\n<span class="key">pka_x</span> = 0.80\n<span class="key">pka_y</span> = 0.50\n<span class="sec">[pka2]</span>\n<span class="key">pka_x</span> = 0.65\n<span class="key">pka_y</span> = 0.71\n<span class="cm">; … bis [pka8] im Kreis</span>';
+const capSingle='Ein zentraler Einschlag — die klassische, radial verzweigende Einzelkaskade.';
+const capRing='Acht <span class="hot">[pkaN]</span>-Sektionen platzieren PKAs frei — hier im Kreis. Genau die Mehr-PKA-Erweiterung der Konfiguration.';
+function applyCfg(){
+  if(!document.getElementById('params-box'))return;  // Folie s3 nicht in diesem Deck
+  document.getElementById('params-box').innerHTML=featCfg==='single'?paramsSingle:paramsRing;
+  document.getElementById('feat-cap').innerHTML=featCfg==='single'?capSingle:capRing;
+  document.querySelectorAll('.toggle button').forEach(b=>b.classList.toggle('on',b.dataset.cfg===featCfg));
+  if(featCfg==='single')Object.assign(feat.p,{sDiv:16,sMin:36,sMax:56,decay:0.992,grow:7000});
+  else                  Object.assign(feat.p,{sDiv:36,sMin:15,sMax:28,decay:0.990,grow:6000});
+  feat.start(true);
+}
+document.querySelectorAll('.toggle button').forEach(b=>b.onclick=()=>{featCfg=b.dataset.cfg;applyCfg();});
+applyCfg();feat.stop();
+
+/* ===== MPI decomposition animation ===== */
+function makeDecomp(canvas){
+  if(!canvas)return{start(){},stop(){},rebuild(){}};  // Folie nicht in diesem Deck -> No-op-Stub
+  const g=canvas.getContext('2d');let raf=null,running=false,W,H,atoms=[],mig=null;const S=4;
+  function build(){W=canvas.width=canvas.offsetWidth;H=canvas.height=canvas.offsetHeight;
+    atoms=[];for(let k=0;k<150;k++)atoms.push({x:Math.random()*W,y:8+Math.random()*(H-16)});
+    mig={x:W*0.5,y:H*0.80};}
+  function col(k){const t=k/(S-1);
+    return`rgb(${Math.round(91+t*164)},${Math.round(157-t*46)},${Math.round(255-t*178)})`;}
+  function frame(ts){if(!running)return;const t=ts*0.001,sh=H/S;g.clearRect(0,0,W,H);
+    for(let k=0;k<S;k++){const y0=k*sh,c=col(S-1-k);
+      g.fillStyle=c.replace('rgb(','rgba(').replace(')',',0.06)');g.fillRect(0,y0,W,sh);
+      g.fillStyle=c;g.font='12px JetBrains Mono';g.textAlign='left';g.fillText('Rank '+(S-1-k),14,y0+22);
+      if(k>0){g.strokeStyle='rgba(124,148,196,.28)';g.setLineDash([4,5]);
+        g.beginPath();g.moveTo(0,y0);g.lineTo(W,y0);g.stroke();g.setLineDash([]);}}
+    g.fillStyle='rgba(185,200,230,.30)';
+    atoms.forEach(a=>{g.beginPath();g.arc(a.x,a.y,1.7,0,7);g.fill();});
+    for(let k=1;k<S;k++){const by=k*sh,sx=((t*0.34+k*0.27)%1)*W;
+      const gr=g.createRadialGradient(sx,by,0,sx,by,55);
+      gr.addColorStop(0,'rgba(255,194,77,.9)');gr.addColorStop(1,'rgba(255,194,77,0)');
+      g.fillStyle=gr;g.beginPath();g.arc(sx,by,55,0,7);g.fill();}
+    mig.y-=0.30;if(mig.y<H*0.05)mig.y=H*0.95;
+    g.shadowBlur=14;g.shadowColor='#ff6f4d';g.fillStyle='#ff6f4d';
+    g.beginPath();g.arc(mig.x,mig.y,5.5,0,7);g.fill();g.shadowBlur=0;
+    g.fillStyle='rgba(255,111,77,.9)';g.font='11px JetBrains Mono';g.textAlign='center';
+    g.fillText('Migration ↑',mig.x,mig.y-13);
+    raf=requestAnimationFrame(frame);}
+  return{start(){
+      if(reduce){if(!W)build();running=true;frame(performance.now());running=false;return;}  // reduce-motion: ein statischer Frame
+      if(!W)build();if(!running){running=true;raf=requestAnimationFrame(frame);}},
+    stop(){running=false;if(raf)cancelAnimationFrame(raf);raf=null;},
+    rebuild(){build();}};
+}
+const decomp=makeDecomp(document.getElementById('decomp'));
+
+/* ===== generic line chart with hover ===== */
+function makeChart(canvas,data,opt){
+  const g=canvas.getContext('2d');let hover=-1;
+  const xs=data.map(d=>Math.log2(d.r)),x0=Math.min(...xs),x1=Math.max(...xs);
+  function draw(){
+    const dpr=Math.min(2,devicePixelRatio||1),cssW=canvas.clientWidth||620;
+    canvas.width=cssW*dpr;canvas.height=430*dpr;canvas.style.height='430px';
+    g.setTransform(dpr,0,0,dpr,0,0);
+    const W=cssW,H=430,m={l:54,r:18,t:20,b:42};
+    g.clearRect(0,0,W,H);
+    const px=k=>m.l+(Math.log2(data[k].r)-x0)/(x1-x0)*(W-m.l-m.r);
+    const py=e=>m.t+(1-(e-opt.ymin)/(opt.ymax-opt.ymin))*(H-m.t-m.b);
+    g.font='11px JetBrains Mono';g.textAlign='right';g.textBaseline='middle';
+    for(let e=opt.ymin;e<=opt.ymax;e+=opt.step){
+      g.strokeStyle='rgba(124,148,196,.08)';g.beginPath();g.moveTo(m.l,py(e));g.lineTo(W-m.r,py(e));g.stroke();
+      g.fillStyle='rgba(138,149,176,.7)';g.fillText(e+'%',m.l-9,py(e));}
+    g.strokeStyle='rgba(138,149,176,.45)';g.setLineDash([5,5]);
+    g.beginPath();g.moveTo(m.l,py(100));g.lineTo(W-m.r,py(100));g.stroke();g.setLineDash([]);
+    g.textAlign='center';g.textBaseline='top';g.fillStyle='rgba(138,149,176,.7)';
+    data.forEach((d,k)=>g.fillText(d.r,px(k),H-m.b+10));g.fillText('Kerne',W/2,H-16);
+    g.beginPath();data.forEach((d,k)=>k?g.lineTo(px(k),py(d.e)):g.moveTo(px(k),py(d.e)));
+    const grad=g.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,opt.c0);grad.addColorStop(1,opt.c1);g.strokeStyle=grad;g.lineWidth=2.5;g.stroke();
+    data.forEach((d,k)=>{const on=k===hover;g.beginPath();g.arc(px(k),py(d.e),on?7:4.5,0,7);
+      g.fillStyle=d.e>100?'#ffc24d':(on?'#fff':opt.dot);
+      if(on){g.shadowBlur=14;g.shadowColor=opt.dot;}g.fill();g.shadowBlur=0;});
+    if(hover>=0){const d=data[hover];g.fillStyle='#fff';g.font='600 13px Inter';
+      g.textAlign='center';g.textBaseline='bottom';
+      g.fillText(d.e+'%  ·  '+d.r+(d.r==1?' Kern':' Kerne'),px(hover),py(d.e)-12);}
+  }
+  canvas.addEventListener('mousemove',ev=>{const rect=canvas.getBoundingClientRect(),W=canvas.clientWidth,m={l:54,r:18};
+    const mx=ev.clientX-rect.left;let best=-1,bd=1e9;
+    data.forEach((d,k)=>{const X=m.l+(Math.log2(d.r)-x0)/(x1-x0)*(W-m.l-m.r);const dd=Math.abs(mx-X);if(dd<bd){bd=dd;best=k;}});
+    hover=bd<40?best:-1;draw();});
+  canvas.addEventListener('mouseleave',()=>{hover=-1;draw();});
+  return{draw};
+}
+/* ===== interactive scaling panels ===== */
+const SP =[{x:1,y:1.0},{x:2,y:1.8},{x:4,y:3.2},{x:8,y:5.3},{x:16,y:7.6},{x:32,y:19.4},{x:64,y:51.2},{x:128,y:170.9}];
+const EF =[{x:1,y:100.0},{x:2,y:91.1},{x:4,y:80.0},{x:8,y:66.4},{x:16,y:47.2},{x:32,y:60.6},{x:64,y:80.0},{x:128,y:133.5}];
+const SP2=[{x:64,y:51.7},{x:128,y:170.9},{x:256,y:322.8}];
+const EF2=[{x:64,y:80.8},{x:128,y:133.5},{x:256,y:126.1}];
+const CM =[{x:1,y:0.5},{x:2,y:2.4},{x:4,y:5.3},{x:8,y:8.5},{x:16,y:34.9},{x:32,y:60.6},{x:64,y:55.9},{x:128,y:28.1}];
+const CM2=[{x:64,y:53.3},{x:128,y:32.5},{x:256,y:37.6}];
+const WALL=[{x:8,y:37.9},{x:16,y:39.1},{x:32,y:75.5},{x:64,y:81.3},{x:128,y:124.3},{x:256,y:161.8}];
+const WEFF=[{x:8,y:100.0},{x:16,y:96.9},{x:32,y:50.2},{x:64,y:46.6},{x:128,y:30.5},{x:256,y:23.4}];
+const PHF=[ /* force,cells,hash,halo,migrate,energy — echte Messung */
+ {x:1,ph:[1026.40,20.40,67.58,0.00,5.24,0.64]},{x:2,ph:[541.73,12.08,57.80,2.75,12.70,0.34]},
+ {x:4,ph:[286.82,8.43,52.28,3.42,15.64,0.18]},{x:8,ph:[152.56,9.14,46.47,7.22,11.13,0.09]},
+ {x:16,ph:[115.39,5.97,42.52,25.34,27.95,0.06]},{x:32,ph:[41.02,2.29,12.25,16.75,19.27,0.02]},
+ {x:64,ph:[16.93,0.62,3.62,4.56,8.04,0.02]},{x:128,ph:[5.29,0.26,0.53,0.98,0.92,0.01]},{x:256,ph:[2.8825,0.1563,0.3277,0.5220,0.8210,0.0031]}];
+
+function rrect(g,x,y,w,h,r){g.beginPath();if(g.roundRect)g.roundRect(x,y,w,h,r);else g.rect(x,y,w,h);}
+function drawLine(g,W,H,o){const m={l:60,r:22,t:24,b:48};
+  const xs=o.data.concat(o.data2||[]).map(p=>Math.log2(p.x)),x0=Math.min(...xs),x1=Math.max(...xs);
+  const X=v=>m.l+(Math.log2(v)-x0)/((x1-x0)||1)*(W-m.l-m.r);
+  let Y;if(o.yLog){const lo=Math.log2(o.ymin),hi=Math.log2(o.ymax);
+    Y=v=>m.t+(1-(Math.log2(v)-lo)/(hi-lo))*(H-m.t-m.b);}
+  else Y=v=>m.t+(1-(v-o.ymin)/(o.ymax-o.ymin))*(H-m.t-m.b);
+  const _T=(window.chartT===undefined?1:window.chartT),_xv=x0+_T*(x1-x0);
+  g.clearRect(0,0,W,H);g.font='11px JetBrains Mono';g.textAlign='right';g.textBaseline='middle';
+  o.yticks.forEach(t=>{g.strokeStyle='rgba(124,148,196,.08)';g.beginPath();g.moveTo(m.l,Y(t));g.lineTo(W-m.r,Y(t));g.stroke();
+    g.fillStyle='rgba(138,149,176,.7)';g.fillText(o.yfmt(t),m.l-8,Y(t));});
+  g.strokeStyle='rgba(138,149,176,.42)';g.setLineDash([5,5]);
+  if(o.ideal==='diag'){g.beginPath();o.data.forEach((p,i)=>i?g.lineTo(X(p.x),Y(p.x)):g.moveTo(X(p.x),Y(p.x)));g.stroke();}
+  else if(o.ideal==='h100'){g.beginPath();g.moveTo(m.l,Y(100));g.lineTo(W-m.r,Y(100));g.stroke();}
+  else if(o.ideal==='hflat'){const f=o.data[0].y;g.beginPath();g.moveTo(m.l,Y(f));g.lineTo(W-m.r,Y(f));g.stroke();}
+  g.setLineDash([]);g.textAlign='center';g.textBaseline='top';g.fillStyle='rgba(138,149,176,.7)';
+  [...new Set(o.data.concat(o.data2||[]).map(p=>p.x))].sort((a,b)=>a-b).forEach(x=>g.fillText(x,X(x),H-m.b+9));g.fillText('Kerne',W/2,H-16);
+  g.beginPath();let _st=false;o.data.forEach(p=>{if(Math.log2(p.x)>_xv)return;if(_st)g.lineTo(X(p.x),Y(p.y));else{g.moveTo(X(p.x),Y(p.y));_st=true;}});
+  g.strokeStyle=o.color;g.lineWidth=2.5;g.stroke();
+  if(o.data2){g.strokeStyle='#ff8a4d';g.lineWidth=2;g.setLineDash([6,4]);
+    g.beginPath();let _s2=false;o.data2.forEach(p=>{if(Math.log2(p.x)>_xv)return;if(_s2)g.lineTo(X(p.x),Y(p.y));else{g.moveTo(X(p.x),Y(p.y));_s2=true;}});g.stroke();g.setLineDash([]);}
+  const pts=o.data.map(p=>({px:X(p.x),py:Y(p.y),d:p,s2:false}));
+  if(o.data2)o.data2.forEach(p=>pts.push({px:X(p.x),py:Y(p.y),d:p,s2:true}));
+  pts.forEach((q,i)=>{const on=i===o.hoverIdx;if(Math.log2(q.d.x)>_xv)return;
+    if(q.s2){const r=on?6:4.5;g.fillStyle='#ff8a4d';if(on){g.shadowBlur=12;g.shadowColor='#ff8a4d';}
+      g.fillRect(q.px-r,q.py-r,r*2,r*2);g.shadowBlur=0;}
+    else{g.beginPath();g.arc(q.px,q.py,on?6.5:4,0,7);g.fillStyle=(o.hot&&q.d.y>100)?'#ffc24d':o.color;
+      if(on){g.shadowBlur=12;g.shadowColor=o.color;}g.fill();g.shadowBlur=0;}});
+  g.save();g.translate(15,H/2);g.rotate(-Math.PI/2);g.fillStyle='rgba(138,149,176,.7)';
+  g.font='11px JetBrains Mono';g.textAlign='center';g.fillText(o.ylabel,0,0);g.restore();
+  if(o.hoverIdx>=0){const q=pts[o.hoverIdx],txt=q.d.y+(o.unit||'')+' · '+q.d.x+' Kerne'+(q.s2?' · 2 Knoten':'');
+    g.font='600 13px Inter';const tw=g.measureText(txt).width+18;let tx=Math.max(m.l,Math.min(W-m.r-tw,q.px-tw/2)),ty=q.py-36;
+    if(ty<m.t)ty=q.py+14;rrect(g,tx,ty,tw,25,7);g.fillStyle='rgba(14,19,32,.96)';g.fill();g.strokeStyle=o.color;g.lineWidth=1;g.stroke();
+    g.fillStyle='#fff';g.textAlign='center';g.textBaseline='middle';g.fillText(txt,tx+tw/2,ty+12.5);}
+  return pts;}
+
+const PCOLS=['#185FA5','#3E8AC0','#7FB2D8','#D85A30','#E8915F','#9AA7B2'];
+function drawStacked(g,W,H,hoverIdx){const m={l:46,r:16,t:24,b:48},d=PHF,n=d.length;
+  const _T=(window.chartT===undefined?1:window.chartT);g.clearRect(0,0,W,H);const gap=(W-m.l-m.r)/n,bw=gap*0.66;const Y=v=>m.t+(1-v/100)*(H-m.t-m.b);
+  g.font='11px JetBrains Mono';g.textAlign='right';g.textBaseline='middle';
+  [0,25,50,75,100].forEach(t=>{g.strokeStyle='rgba(124,148,196,.08)';g.beginPath();g.moveTo(m.l,Y(t));g.lineTo(W-m.r,Y(t));g.stroke();
+    g.fillStyle='rgba(138,149,176,.7)';g.fillText(t+'%',m.l-6,Y(t));});
+  const bars=[];
+  d.forEach((p,i)=>{const x=m.l+gap*i+(gap-bw)/2,tot=p.ph.reduce((a,b)=>a+b,0);let acc=0;
+    p.ph.forEach((val,k)=>{const h=val/tot*100*_T;g.fillStyle=PCOLS[k];
+      g.globalAlpha=(hoverIdx>=0&&hoverIdx!==i)?0.38:1;g.fillRect(x,Y(acc+h),bw,Y(acc)-Y(acc+h));g.globalAlpha=1;acc+=h;});
+    g.fillStyle='rgba(138,149,176,.7)';g.textAlign='center';g.textBaseline='top';g.fillText(p.x,x+bw/2,H-m.b+9);
+    bars.push({x0:x,x1:x+bw,cx:x+bw/2,d:p});});
+  g.fillStyle='rgba(138,149,176,.7)';g.textAlign='center';g.fillText('Kerne',W/2,H-16);
+  if(hoverIdx>=0){const p=d[hoverIdx],tot=p.ph.reduce((a,b)=>a+b,0),names=['force','cells','hash','halo','migrate','energy'];
+    const lines=p.ph.map((v,k)=>({t:names[k]+'  '+Math.round(v/tot*100)+'%',c:PCOLS[k]}));
+    const bwid=130,bh=26+lines.length*16;let bx=Math.max(m.l,Math.min(W-m.r-bwid,bars[hoverIdx].cx-bwid/2)),by=m.t+6;
+    rrect(g,bx,by,bwid,bh,8);g.fillStyle='rgba(14,19,32,.97)';g.fill();g.strokeStyle='rgba(124,148,196,.3)';g.lineWidth=1;g.stroke();
+    g.textAlign='left';g.textBaseline='middle';g.font='600 12px Inter';g.fillStyle='#fff';g.fillText(p.x+' Kerne',bx+12,by+15);
+    g.font='11px JetBrains Mono';lines.forEach((ln,k)=>{g.fillStyle=ln.c;g.fillRect(bx+12,by+28+k*16-4,8,8);
+      g.fillStyle='rgba(233,237,247,.92)';g.fillText(ln.t,bx+24,by+28+k*16);});}
+  return bars;}
+const PHLEG='<i style="background:#185FA5"></i>force <i style="background:#3E8AC0"></i>cells <i style="background:#7FB2D8"></i>hash <i style="background:#D85A30"></i>halo <i style="background:#E8915F"></i>migrate <i style="background:#9AA7B2"></i>energy';
+const LEG2='<i style="background:#5b9dff"></i>1 Knoten &nbsp; <i style="background:#ff8a4d"></i>2 Knoten (gestrichelt)';
+
+const PANELS_STRONG=[
+ {title:'Speedup',sub:'T(1)/T(p)',leg:LEG2,draw:(g,W,H,hv)=>drawLine(g,W,H,{data:SP,data2:SP2,yLog:true,ymin:1,ymax:256,yticks:[1,4,16,64,256],yfmt:t=>t,ideal:'diag',color:'#5b9dff',hot:true,ylabel:'Speedup',unit:'×',hoverIdx:hv}),
+  explain:'Bis 16 Kerne leicht unter der idealen Geraden, ab 64 Kernen überholt der Speedup sie — bei 128 Kernen <b>171×</b> statt der idealen 128×. Die 2-Knoten-Punkte (Quadrate) verlängern die Kurve bis <b>323× bei 256 Kernen</b>. Bei 128 Kernen liegen 1 und 2 Knoten exakt aufeinander (Verhältnis 1,000) — nur eine von 127 Grenzen kreuzt das Netzwerk.'},
+ {title:'Effizienz',sub:'Speedup / p',leg:LEG2,draw:(g,W,H,hv)=>drawLine(g,W,H,{data:EF,data2:EF2,ymin:40,ymax:140,yticks:[40,60,80,100,120,140],yfmt:t=>t+'%',ideal:'h100',color:'#5b9dff',hot:true,ylabel:'Effizienz',unit:'%',hoverIdx:hv}),
+  explain:'Die klassische U-Form: Kommunikations-Overhead drückt die Effizienz auf 47 % (16 Kerne), danach treiben Cache-Effekte sie auf <b>133 % bei 128 Kernen</b>. Über zwei Knoten bleibt sie superlinear — 126 % bei 256 Kernen. Die Bandbreite skaliert also sauber über Knotengrenzen hinweg.'},
+ {title:'Phasen-Zusammensetzung',sub:'normiert',leg:PHLEG,stacked:true,draw:(g,W,H,hv)=>drawStacked(g,W,H,hv),
+  explain:'Wo geht die Zeit hin? Bei 1 Kern ist <b>force</b> ~92 % der Arbeit. Mit mehr Rängen schrumpft der force-Anteil und <b>halo + migrate</b> wachsen, bis sie um 16–32 Kerne zusammen rund die Hälfte ausmachen — genau das Effizienz-Minimum. (Echte Phasen-Zeiten aus der Messung; der 256-Balken ist die 2-Knoten-Messung.)'},
+ {title:'Kommunikationsanteil',sub:'halo + migrate',leg:LEG2,draw:(g,W,H,hv)=>drawLine(g,W,H,{data:CM,data2:CM2,ymin:0,ymax:70,yticks:[0,20,40,60],yfmt:t=>t+'%',ideal:'none',color:'#5b9dff',ylabel:'comm / Walltime',unit:'%',hoverIdx:hv}),
+  explain:'Der Kommunikationsanteil steigt von <1 % auf einen Gipfel von ~60 % bei 32 Kernen und fällt dann wieder — bei dichter Knotenbelegung wird das Mapping lokaler. Dieser Mittelfeld-Gipfel zieht die Effizienz nach unten. Die 2-Knoten-Punkte (Quadrate) reichen bis 256 Kerne (~38 % comm).'},
+];
+const PANELS_WEAK=[
+ {title:'Walltime',sub:'flach = ideal',leg:'',draw:(g,W,H,hv)=>drawLine(g,W,H,{data:WALL,ymin:0,ymax:180,yticks:[0,50,100,150],yfmt:t=>t+'s',ideal:'hflat',color:'#ff6f4d',ylabel:'Walltime [s]',unit:'s',hoverIdx:hv}),
+  explain:'Ideal bliebe die Walltime konstant (gestrichelt). Bis 16 Kerne hält das; ab 32 Kernen steigt sie steil — die Kerne sättigen die gemeinsame Speicherbandbreite eines Knotens, mehr Kerne bringen keinen zusätzlichen Durchsatz.'},
+ {title:'Effizienz',sub:'t(1)/t(P)',leg:'',draw:(g,W,H,hv)=>drawLine(g,W,H,{data:WEFF,ymin:0,ymax:110,yticks:[0,20,40,60,80,100],yfmt:t=>t+'%',ideal:'h100',color:'#ff6f4d',ylabel:'Effizienz',unit:'%',hoverIdx:hv}),
+  explain:'Dieselbe Geschichte als Effizienz: flach bei ~100 % bis 16 Kerne, dann Einbruch auf 23 % bei 256 Kernen. Bandbreite ist der Deckel — dasselbe Limit wie im Strong Scaling, von der anderen Seite gezeigt.'},
+];
+function makePanelGrid(container,panels,miniH){if(!container)return{redraw(){},animate(){}};  // Folie nicht in diesem Deck -> No-op-Stub
+  miniH=miniH||170;container.innerHTML='';
+  panels.forEach(p=>{const card=document.createElement('div');card.className='pcard';
+    card.innerHTML='<div class="ptitle">'+p.title+'<span>'+p.sub+'</span></div><canvas></canvas><div class="pzoom">⤢ zoom</div>';
+    const cv=card.querySelector('canvas');
+    p._mini=()=>{const dpr=Math.min(2,devicePixelRatio||1),w=card.clientWidth-28;if(w<10)return;
+      cv.width=w*dpr;cv.height=miniH*dpr;cv.style.width='100%';cv.style.height=miniH+'px';
+      const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);p.draw(g,w,miniH);};
+    card.onclick=()=>openPanel(p);container.appendChild(card);});
+  const draw=()=>panels.forEach(p=>p._mini&&p._mini());
+  const redraw=()=>requestAnimationFrame(draw);
+  const animate=()=>{if(reduce){window.chartT=1;redraw();return;}window.chartT=0;const t0=performance.now();
+    const step=()=>{const e=Math.min(1,(performance.now()-t0)/750);window.chartT=1-Math.pow(1-e,3);draw();if(e<1)requestAnimationFrame(step);else{window.chartT=1;draw();}};requestAnimationFrame(step);};
+  redraw();return{redraw,animate};}
+function openPanel(p){const ov=document.getElementById('poverlay');ov.classList.remove('hidden');
+  document.getElementById('ptitle').textContent=p.title;
+  document.getElementById('ptext').innerHTML=p.explain;
+  document.getElementById('plegend').innerHTML=p.leg?'<div class="plegend">'+p.leg+'</div>':'';
+  const cv=document.getElementById('pbig');
+  requestAnimationFrame(()=>{const dpr=Math.min(2,devicePixelRatio||1),W=cv.clientWidth,Hh=380;
+    cv.width=W*dpr;cv.height=Hh*dpr;cv.style.height=Hh+'px';const g=cv.getContext('2d');
+    const render=hv=>{g.setTransform(dpr,0,0,dpr,0,0);return p.draw(g,W,Hh,hv);};
+    let hit=render(-1);
+    cv.onmousemove=ev=>{const r=cv.getBoundingClientRect(),mx=ev.clientX-r.left;let idx=-1;
+      if(p.stacked){hit.forEach((b,k)=>{if(mx>=b.x0&&mx<=b.x1)idx=k;});}
+      else{let bd=1e9;hit.forEach((q,k)=>{const dd=Math.abs(mx-q.px);if(dd<bd){bd=dd;idx=k;}});if(bd>45)idx=-1;}
+      hit=render(idx);};
+    cv.onmouseleave=()=>{hit=render(-1);};});}
+function closePanel(){document.getElementById('poverlay').classList.add('hidden');}
+document.getElementById('pclose').onclick=closePanel;
+document.getElementById('poverlay').onclick=e=>{if(e.target.id==='poverlay')closePanel();};
+const strongGrid=makePanelGrid(document.getElementById('pg-strong'),PANELS_STRONG);
+const weakGrid=makePanelGrid(document.getElementById('pg-weak'),PANELS_WEAK,215);
+
+let _rzT;
+addEventListener('resize',()=>{
+  drawLattice();
+  clearTimeout(_rzT);
+  _rzT=setTimeout(()=>{
+    strongGrid.redraw();weakGrid.redraw();
+    if(onEnter[slides[i].id])onEnter[slides[i].id]();   // Sim-Canvas der aktiven Folie an neue Deckgröße anpassen
+    fitActive();                                         // Auto-Fit neu berechnen
+  },160);
+});
+go(0);
+/* Auto-Fit erneut, sobald Webfonts/Assets geladen sind (ändern die Texthöhe) */
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>fitActive());
+addEventListener('load',()=>fitActive());
+/* --- Versions-/Diagnosemarke: F12 -> Console zeigt diese Zeile nur in der NEUEN Datei --- */
+console.log('%cPraesentation BUILD 2026-07-01b','color:#5b9dff;font-weight:700',
+  '| reduce-motion:',matchMedia('(prefers-reduced-motion:reduce)').matches,
+  '| viewport:',innerWidth+'x'+innerHeight,
+  '| deck:',(document.getElementById('deck')||{}).clientWidth+'x'+(document.getElementById('deck')||{}).clientHeight,
+  '| container-query-support:',(window.CSS&&CSS.supports&&CSS.supports('container-type','size')));
+</script>
+</body>
+</html>

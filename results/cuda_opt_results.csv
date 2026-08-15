@@ -1,0 +1,5 @@
+variant,registers,occupancy_pct,kforce_us,per_step_us,throughput_matom_s,drift_pct
+base,62,45.06,308.77,525.11,3807.55,0.0700
+lb,40,66.28,313.09,531.83,3759.50,0.0700
+graph,62,45.09,309.25,519.77,3846.68,0.0700
+lbgraph,40,66.32,306.75,522.05,3829.91,0.0700

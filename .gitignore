@@ -1,0 +1,28 @@
+# LaTeX-Build-Artefakte
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+
+# Slurm-Ausgaben (im Arbeitsverzeichnis)
+slurm-*.out
+*_%j.out
+*_%j.err
+
+# Python
+__pycache__/
+*.pyc
+
+# Kompilate
+*.o
+*.exe
+cascade_serial
+mpi_cascade
+cascade_cuda

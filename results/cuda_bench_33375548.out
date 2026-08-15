@@ -1,0 +1,380 @@
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Mon_Mar_02_09:52:23_PM_PST_2026
+Cuda compilation tools, release 13.2, V13.2.51
+Build cuda_13.2.r13.2/compiler.37434383_0
+name, compute_cap, memory.total [MiB]
+NVIDIA A100-SXM4-40GB, 8.0, 40960 MiB
+############## (1) HEADLINE fp64 @ 2 Mio, 3000 Schritte, 5 Wdh ##############
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=256 | Schritte=3000 | rep=5 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 1.599 s  (drift 0.2164 %)
+#   rep 1: 1.577 s  (drift 0.2164 %)
+#   rep 2: 1.576 s  (drift 0.2164 %)
+#   rep 3: 1.576 s  (drift 0.2164 %)
+#   rep 4: 1.576 s  (drift 0.2164 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.2164 %
+# Zeitschleife (Median v. 5)    : 1.5765 s   [min 1.5764 / max 1.5988]
+# pro Schritt                    : 525.49 us
+# Durchsatz                      : 3804.8 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      9.42 us  
+#   build_cells     47.36 us  
+#   force          259.27 us  
+#   energy         237.51 us  (nur beim Logging)
+#   kick_drift     133.09 us  
+#   kick            86.52 us  
+#   -> pro Schritt (Summe ohne energy): 535.67 us ; force-Anteil = 48.4 %
+# --- Transfer ---
+# H2D (184 MB) : 14.36 ms (13 GB/s) ; D2H (16 MB) : 1.37 ms (12 GB/s)
+# Bandbreite force (MODELL)      : 586.1 GB/s (37.7 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 731.3x ; vs 64-Kern-Knoten (22.5 s) : 14.28x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,256,3000,525.488,3804.83,259.272,535.670
+# =====================================================================
+############## (2) HEADLINE fp32 @ 2 Mio, 3000 Schritte, 5 Wdh ##############
+# ===== cascade_cuda_bench | float (fp32) | N=1999396 (1414x1414) | T=256 | Schritte=3000 | rep=5 =====
+# [Reduktion] GPU=5.000079e+03 Host=5.000102e+03 rel=4.73e-06 -> OK
+#   rep 0: 0.999 s  (drift 0.9387 %)
+#   rep 1: 0.999 s  (drift 0.9385 %)
+#   rep 2: 0.999 s  (drift 0.9388 %)
+#   rep 3: 0.999 s  (drift 0.9385 %)
+#   rep 4: 0.999 s  (drift 0.9387 %)
+
+# ================== ERGEBNIS-BLOCK (float (fp32), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.9387 %
+# Zeitschleife (Median v. 5)    : 0.9992 s   [min 0.9992 / max 0.9993]
+# pro Schritt                    : 333.08 us
+# Durchsatz                      : 6002.8 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      9.27 us  
+#   build_cells     27.21 us  
+#   force          180.25 us  
+#   energy         175.62 us  (nur beim Logging)
+#   kick_drift      71.01 us  
+#   kick            46.21 us  
+#   -> pro Schritt (Summe ohne energy): 333.95 us ; force-Anteil = 54.0 %
+# --- Transfer ---
+# H2D (144 MB) : 11.26 ms (13 GB/s) ; D2H (8 MB) : 0.74 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 843.0 GB/s (54.2 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  float (fp32),1999396,256,3000,333.076,6002.81,180.250,333.952
+# =====================================================================
+############## (3) SAETTIGUNGS-SWEEP fp64 (400 Schritte, 3 Wdh) #############
+# ===== cascade_cuda_bench | double (fp64) | N=250000 (500x500) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.026 s  (drift 0.0623 %)
+#   rep 1: 0.026 s  (drift 0.0623 %)
+#   rep 2: 0.026 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=250000) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.0261 s   [min 0.0261 / max 0.0261]
+# pro Schritt                    : 65.20 us
+# Durchsatz                      : 3834.5 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      3.46 us  
+#   build_cells      5.36 us  
+#   force           33.74 us  
+#   energy          31.37 us  (nur beim Logging)
+#   kick_drift       8.40 us  
+#   kick             6.63 us  
+#   -> pro Schritt (Summe ohne energy): 57.58 us ; force-Anteil = 58.6 %
+# --- Transfer ---
+# H2D (23 MB) : 2.46 ms (9 GB/s) ; D2H (2 MB) : 0.21 ms (10 GB/s)
+# Bandbreite force (MODELL)      : 563.2 GB/s (36.2 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),250000,256,400,65.198,3834.47,33.736,57.580
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=499849 (707x707) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.049 s  (drift 0.0623 %)
+#   rep 1: 0.049 s  (drift 0.0623 %)
+#   rep 2: 0.049 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=499849) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.0491 s   [min 0.0491 / max 0.0491]
+# pro Schritt                    : 122.68 us
+# Durchsatz                      : 4074.4 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      4.29 us  
+#   build_cells      7.23 us  
+#   force           75.44 us  
+#   energy          72.35 us  (nur beim Logging)
+#   kick_drift      18.45 us  
+#   kick             9.47 us  
+#   -> pro Schritt (Summe ohne energy): 114.87 us ; force-Anteil = 65.7 %
+# --- Transfer ---
+# H2D (46 MB) : 4.47 ms (10 GB/s) ; D2H (4 MB) : 0.37 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 503.5 GB/s (32.4 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),499849,256,400,122.680,4074.40,75.443,114.872
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=1000000 (1000x1000) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.108 s  (drift 0.0623 %)
+#   rep 1: 0.108 s  (drift 0.0623 %)
+#   rep 2: 0.108 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1000000) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.1084 s   [min 0.1084 / max 0.1084]
+# pro Schritt                    : 270.96 us
+# Durchsatz                      : 3690.5 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      5.92 us  
+#   build_cells     11.36 us  
+#   force          141.93 us  
+#   energy         131.32 us  (nur beim Logging)
+#   kick_drift      69.58 us  
+#   kick            44.90 us  
+#   -> pro Schritt (Summe ohne energy): 273.69 us ; force-Anteil = 51.9 %
+# --- Transfer ---
+# H2D (92 MB) : 7.50 ms (12 GB/s) ; D2H (8 MB) : 0.74 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 535.5 GB/s (34.4 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1000000,256,400,270.963,3690.54,141.926,273.690
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.211 s  (drift 0.0623 %)
+#   rep 1: 0.211 s  (drift 0.0623 %)
+#   rep 2: 0.211 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.2106 s   [min 0.2105 / max 0.2106]
+# pro Schritt                    : 526.44 us
+# Durchsatz                      : 3797.9 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      9.35 us  
+#   build_cells     47.45 us  
+#   force          259.89 us  
+#   energy         238.21 us  (nur beim Logging)
+#   kick_drift     133.15 us  
+#   kick            86.55 us  
+#   -> pro Schritt (Summe ohne energy): 536.38 us ; force-Anteil = 48.5 %
+# --- Transfer ---
+# H2D (184 MB) : 14.03 ms (13 GB/s) ; D2H (16 MB) : 1.33 ms (12 GB/s)
+# Bandbreite force (MODELL)      : 584.7 GB/s (37.6 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 5475.0x ; vs 64-Kern-Knoten (22.5 s) : 106.93x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,256,400,526.441,3797.95,259.886,536.381
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=4000000 (2000x2000) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.422 s  (drift 0.0623 %)
+#   rep 1: 0.422 s  (drift 0.0623 %)
+#   rep 2: 0.422 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=4000000) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.4220 s   [min 0.4219 / max 0.4220]
+# pro Schritt                    : 1054.89 us
+# Durchsatz                      : 3791.9 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells     15.67 us  
+#   build_cells     90.02 us  
+#   force          525.03 us  
+#   energy         471.77 us  (nur beim Logging)
+#   kick_drift     261.23 us  
+#   kick           167.26 us  
+#   -> pro Schritt (Summe ohne energy): 1059.22 us ; force-Anteil = 49.6 %
+# --- Transfer ---
+# H2D (368 MB) : 26.75 ms (14 GB/s) ; D2H (32 MB) : 2.82 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 579.0 GB/s (37.2 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),4000000,256,400,1054.889,3791.87,525.025,1059.215
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=7997584 (2828x2828) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.827 s  (drift 0.0623 %)
+#   rep 1: 0.826 s  (drift 0.0623 %)
+#   rep 2: 0.826 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=7997584) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.8265 s   [min 0.8265 / max 0.8266]
+# pro Schritt                    : 2066.21 us
+# Durchsatz                      : 3870.6 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells     28.90 us  
+#   build_cells    175.15 us  
+#   force         1016.10 us  
+#   energy         919.12 us  (nur beim Logging)
+#   kick_drift     518.62 us  
+#   kick           329.40 us  
+#   -> pro Schritt (Summe ohne energy): 2068.17 us ; force-Anteil = 49.1 %
+# --- Transfer ---
+# H2D (736 MB) : 52.33 ms (14 GB/s) ; D2H (64 MB) : 5.44 ms (12 GB/s)
+# Bandbreite force (MODELL)      : 598.2 GB/s (38.5 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),7997584,256,400,2066.214,3870.65,1016.100,2068.173
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=16000000 (4000x4000) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 1.666 s  (drift 0.0623 %)
+#   rep 1: 1.666 s  (drift 0.0623 %)
+#   rep 2: 1.666 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=16000000) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 1.6656 s   [min 1.6656 / max 1.6659]
+# pro Schritt                    : 4164.11 us
+# Durchsatz                      : 3842.4 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells     54.27 us  
+#   build_cells    345.19 us  
+#   force         2084.35 us  
+#   energy        1900.19 us  (nur beim Logging)
+#   kick_drift    1029.44 us  
+#   kick           653.96 us  
+#   -> pro Schritt (Summe ohne energy): 4167.20 us ; force-Anteil = 50.0 %
+# --- Transfer ---
+# H2D (1472 MB) : 103.88 ms (14 GB/s) ; D2H (128 MB) : 11.01 ms (12 GB/s)
+# Bandbreite force (MODELL)      : 583.4 GB/s (37.5 % Peak) -- ncu ist autoritativ
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),16000000,256,400,4164.114,3842.35,2084.347,4167.199
+# =====================================================================
+############## (4) BLOCKGROESSEN-SWEEP fp64 @ 2 Mio (400 Schritte) ##########
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=128 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.218 s  (drift 0.0623 %)
+#   rep 1: 0.218 s  (drift 0.0623 %)
+#   rep 2: 0.218 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.2178 s   [min 0.2178 / max 0.2178]
+# pro Schritt                    : 544.47 us
+# Durchsatz                      : 3672.2 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells     16.16 us  
+#   build_cells     47.43 us  
+#   force          271.77 us  
+#   energy         243.39 us  (nur beim Logging)
+#   kick_drift     132.93 us  
+#   kick            86.34 us  
+#   -> pro Schritt (Summe ohne energy): 554.63 us ; force-Anteil = 49.0 %
+# --- Transfer ---
+# H2D (184 MB) : 13.98 ms (13 GB/s) ; D2H (16 MB) : 1.46 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 559.1 GB/s (36.0 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 5293.6x ; vs 64-Kern-Knoten (22.5 s) : 103.39x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,128,400,544.474,3672.16,271.770,554.629
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=256 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.210 s  (drift 0.0623 %)
+#   rep 1: 0.210 s  (drift 0.0623 %)
+#   rep 2: 0.210 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.2099 s   [min 0.2099 / max 0.2099]
+# pro Schritt                    : 524.84 us
+# Durchsatz                      : 3809.5 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      9.22 us  
+#   build_cells     47.30 us  
+#   force          258.65 us  
+#   energy         237.16 us  (nur beim Logging)
+#   kick_drift     132.95 us  
+#   kick            86.46 us  
+#   -> pro Schritt (Summe ohne energy): 534.58 us ; force-Anteil = 48.4 %
+# --- Transfer ---
+# H2D (184 MB) : 14.13 ms (13 GB/s) ; D2H (16 MB) : 1.50 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 587.5 GB/s (37.8 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 5491.7x ; vs 64-Kern-Knoten (22.5 s) : 107.26x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,256,400,524.838,3809.55,258.652,534.584
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=512 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.206 s  (drift 0.0623 %)
+#   rep 1: 0.206 s  (drift 0.0623 %)
+#   rep 2: 0.206 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.2063 s   [min 0.2063 / max 0.2064]
+# pro Schritt                    : 515.87 us
+# Durchsatz                      : 3875.8 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      6.32 us  
+#   build_cells     47.53 us  
+#   force          252.18 us  
+#   energy         232.99 us  (nur beim Logging)
+#   kick_drift     133.40 us  
+#   kick            86.86 us  
+#   -> pro Schritt (Summe ohne energy): 526.28 us ; force-Anteil = 47.9 %
+# --- Transfer ---
+# H2D (184 MB) : 13.84 ms (13 GB/s) ; D2H (16 MB) : 1.46 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 602.6 GB/s (38.8 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 5587.2x ; vs 64-Kern-Knoten (22.5 s) : 109.12x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,512,400,515.871,3875.77,252.175,526.285
+# =====================================================================
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=1024 | Schritte=400 | rep=3 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 0.215 s  (drift 0.0623 %)
+#   rep 1: 0.215 s  (drift 0.0623 %)
+#   rep 2: 0.215 s  (drift 0.0623 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0623 %
+# Zeitschleife (Median v. 3)    : 0.2147 s   [min 0.2147 / max 0.2148]
+# pro Schritt                    : 536.85 us
+# Durchsatz                      : 3724.3 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells      6.30 us  
+#   build_cells     48.04 us  
+#   force          274.00 us  
+#   energy         252.94 us  (nur beim Logging)
+#   kick_drift     133.91 us  
+#   kick            87.19 us  
+#   -> pro Schritt (Summe ohne energy): 549.43 us ; force-Anteil = 49.9 %
+# --- Transfer ---
+# H2D (184 MB) : 14.04 ms (13 GB/s) ; D2H (16 MB) : 1.34 ms (12 GB/s)
+# Bandbreite force (MODELL)      : 554.6 GB/s (35.7 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 5368.8x ; vs 64-Kern-Knoten (22.5 s) : 104.86x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,1024,400,536.850,3724.31,273.997,549.432
+# =====================================================================
+############## CSV-Zeilen gesammelt (fuer Plots) ##########################
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,256,3000,525.488,3804.83,259.272,535.670
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+float (fp32),1999396,256,3000,333.076,6002.81,180.250,333.952
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),250000,256,400,65.198,3834.47,33.736,57.580
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),499849,256,400,122.680,4074.40,75.443,114.872
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1000000,256,400,270.963,3690.54,141.926,273.690
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,256,400,526.441,3797.95,259.886,536.381
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),4000000,256,400,1054.889,3791.87,525.025,1059.215
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),7997584,256,400,2066.214,3870.65,1016.100,2068.173
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),16000000,256,400,4164.114,3842.35,2084.347,4167.199
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,128,400,544.474,3672.16,271.770,554.629
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,256,400,524.838,3809.55,258.652,534.584
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,512,400,515.871,3875.77,252.175,526.285
+prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+double (fp64),1999396,1024,400,536.850,3724.31,273.997,549.432
+fertig.

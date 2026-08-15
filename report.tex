@@ -1,0 +1,1476 @@
+% =====================================================================
+%  Kollisionskaskaden-HPC -- Projektbericht
+%  Paul Kamm, TH Luebeck, HPC via PC2 Paderborn (Noctua 2)
+%
+%  Bau:   pdflatex report.tex ; pdflatex report.tex   (2x fuer Refs)
+%
+%  Bilder: PNG only
+%    Alte Folien-Plots:   Folien/figures_final/
+%    Neue Python-Plots:   results/images/   (je nach Ausfuehrungsordner)
+%  Plot-Skripte: scripts/python/ (eigener Ordner)
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{amsmath,amssymb}
+\usepackage{bm}
+\usepackage{siunitx}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{placeins}   % \FloatBarrier: Grafiken nahe an ihrem Abschnitt halten
+\usepackage{float}      % [H]: Grafiken exakt an ihrer Textstelle verankern
+
+\geometry{margin=2.2cm,a4paper}
+\raggedbottom   % keine gestreckten Zwischenraeume auf reinen Grafik-Seiten
+\hypersetup{colorlinks=true,linkcolor=black,urlcolor=blue!60!black,
+            pdftitle={Kollisionskaskaden-HPC Bericht}}
+\captionsetup{font=small,labelfont=bf,labelsep=colon}
+
+\graphicspath{%
+  {./}%
+  {Folien/}%
+  {./Folien/}%
+  {Folien/figures_final/}%
+  {./Folien/figures_final/}%
+  {plot_skripte/figures/}%
+  {./plot_skripte/figures/}%
+  {results/images/}%
+  {./results/images/}%
+}
+
+% ---- Hilfsmakros -----------------------------------------------------------
+\newcommand{\ueberleitung}[1]{\par\smallskip\noindent\textcolor{blue!50!black}{%
+  \small $\triangleright$~\emph{#1}}\par\smallskip}
+
+% Infobox für Schlüsselzahlen
+\newcommand{\infobox}[2]{%
+  \begin{tcolorbox}[colback=orange!5,colframe=orange!60!black,boxrule=0.4pt,
+                    arc=2pt,title={\small\textbf{#1}}]
+    \small #2
+  \end{tcolorbox}%
+}
+
+% =====================================================================
+\title{Kollisionskaskaden in 2D\\[0.2em]
+\large Ein HPC-Projektbericht: GPU-Beschleunigung und Potenzgesetze}
+\author{Paul Kamm\\
+\small TH L\"ubeck -- Kursprojekt \emph{High Performance Computing}, betreut von Dr.\ Maurice Maurer\\
+\small Messungen auf \emph{Noctua 2}, PC2 Paderborn (EPYC 7763, A100-SXM4-40GB)}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Dieser Bericht untersucht 2D-Kollisionskaskaden aus zwei Perspektiven: als
+\textbf{HPC Projekt} und als \textbf{physikalisches Skalierungsgesetz}.
+\textbf{Teil~I} (HPC) verfolgt die Frage, wie weit sich eine
+Molekulardynamik-Simulation durch Parallelisierung und GPU-Portierung beschleunigen
+lässt -- und wo die prinzipielle Grenze liegt. Es zeigt sich, dass der Code
+durchgehend \emph{speicherbandbreiten-gebunden} ist: eine A100-GPU liefert
+\textbf{731-fache} Beschleunigung gegenüber einem EPYC-Kern; die MPI-Skalierung
+ist U-förmig mit superlinearer Effizienz (133\,\% bei 128 Kernen) durch
+Cache-Effekte; Kommunikationsoptimierungen bringen nichts.
+\textbf{Teil~II} (Power Law) zeigt, dass die Clustergrößenverteilung
+aus 1000 simulierten Kaskaden einem Potenzgesetz mit $S = 1{,}38$--$1{,}41$
+folgt -- robust gegen Healing. Behandelt werden die Fit-Methodik (Maximum
+Likelihood nach Clauset et al., $x_\text{min}$-Falle) sowie die Einordnung des Ergebnisses
+in den Kontext der 3D-MD-Befunde von Sand et al.\,(2013) und der
+Subkaskaden-Theorie von De Backer et al.\,(2016).
+\end{abstract}
+
+\newpage
+{\footnotesize
+\makeatletter
+\renewcommand*\l@part[2]{%
+  \ifnum \c@tocdepth >-2\relax
+    \addpenalty\@secpenalty
+    \addvspace{1.3em \@plus\p@}%
+    \setlength\@tempdima{3em}%
+    \begingroup
+      \parindent \z@ \rightskip \@pnumwidth
+      \parfillskip -\@pnumwidth
+      {\leavevmode
+       \large \bfseries #1\hfil
+       \hb@xt@\@pnumwidth{\hss #2%
+                          \kern-\p@\kern\p@}}\par
+       \nobreak
+    \endgroup
+  \fi}
+\renewcommand*\l@section[2]{%
+  \ifnum \c@tocdepth >\z@
+    \addpenalty\@secpenalty
+    \addvspace{0.4em \@plus\p@}%
+    \setlength\@tempdima{1.5em}%
+    \begingroup
+      \parindent \z@ \rightskip \@pnumwidth
+      \parfillskip -\@pnumwidth
+      \leavevmode \bfseries
+      \advance\leftskip\@tempdima
+      \hskip -\leftskip
+      #1\nobreak\hfil
+      \nobreak\hb@xt@\@pnumwidth{\hss #2%
+                                 \kern-\p@\kern\p@}\par
+    \endgroup
+  \fi}
+\makeatother
+\tableofcontents}
+\vspace{1em}
+
+% =====================================================================
+% TEIL I: HPC
+% =====================================================================
+\newpage
+\FloatBarrier
+\part{HPC -- Beschleunigung der Simulation}
+\label{part:hpc}
+
+% =====================================================================
+\FloatBarrier
+\section{Das Simulations-Modell}
+\label{sec:modell}
+
+\subsection{Physikalisches Modell: 2D-Dreiecks\-gitter}
+
+Simuliert wird kein echtes Material, sondern der \emph{Mechanismus} einer
+Kollisionskaskade in einem minimalen 2D-Modell. Die Atome sitzen auf einem
+\textbf{Dreiecksgitter} (6er-Koordination, schubstabil, elastisch isotrop;
+Abb.~\ref{fig:modell-schema}).
+
+\paragraph{Zwei Wechselwirkungen (Abb.~\ref{fig:kraftgesetz}).}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Brechbare harmonische Feder:} $F = K(r - L_0)$ mit Bruch bei
+  $r > 1{,}15\,L_0$ ($K = 100$). Modelliert die kovalente/metallische Bindung.
+\item \textbf{Steile Kurzreichweitswechselwirkung:} $F = K_\text{rep}
+  \bigl((R_\text{cut}/r)^{12} - 1\bigr)$ mit $K_\text{rep} = 400$,
+  $R_\text{cut} = 0{,}9\,L_0$. Gibt den Atomen einen effektiven
+  Wirkungsquerschnitt -- ohne sie würde das PKA alles durchdringen.
+\end{itemize}
+
+Das PKA (Primary Knock-on Atom) ist schlicht ein Atom mit einer hohen
+Anfangsgeschwindigkeit $v_\text{PKA} = \sqrt{2E_\text{PKA}/m}$, die in eine
+Richtung zeigt. Im Laufe der Simulation \"ubertr\"agt es seine Energie
+durch Absto\ss ungen auf Nachbaratome, die ihrerseits weitere ansto\ss en --
+die verzweigende Kaskade (Abb.~\ref{fig:pka}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{M1_model_schema.png}
+  \caption{Modell-Schema. Links: intaktes Dreiecksgitter mit rot markiertem PKA.
+    Rechts: Zustand nach der Kaskade -- gerissene Bindungen (rot) und ein
+    Feld aus Defektclustern. Alle Größen sind dimensionslos.}
+  \label{fig:modell-schema}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{M2_force_law.png}
+  \caption{Die beiden Wechselwirkungen. Links: Kraftverläufe -- Feder (blau,
+    Bruch bei 1{,}15\,$L_0$) und Abstoßung (rot, nur für $r < 0{,}9\,L_0$).
+    Rechts: zugehörige Potenziale mit stetigem Nullpunkt an $R_\text{cut}$.
+    Die Energiestetigkeit ist Grundlage des Korrektheitschecks.}
+  \label{fig:kraftgesetz}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{M4_pka_velocity.png}
+  \caption{PKA-Start (Korrektheitsprüfung). Links: kinetische Gesamtenergie
+    über die Zeit -- bei $t=0$ steckt sie vollständig im PKA-Atom und wird
+    im Zuge der Kaskade auf die Nachbaratome verteilt; rechts:
+    Geschwindigkeitshistogramm bei $t=0$, ein
+    einzelner Peak bei $v_\text{PKA} = \sqrt{2E/m} \approx 100$, alle anderen
+    Atome stehen still. Genau dieser Impuls startet die Kaskade.}
+  \label{fig:pka}
+\end{figure}
+
+\newpage
+
+\subsection{Datenstruktur: Structure of Arrays (SoA)}
+\label{sec:soa}
+
+Die Atome werden als \textbf{Structure of Arrays} gespeichert: statt
+\texttt{atom[i].px} gibt es separate Arrays \texttt{px[i]}, \texttt{py[i]},
+\texttt{vx[i]}, \texttt{vy[i]}, \texttt{fx[i]}, \texttt{fy[i]},
+\texttt{nbr[i][6]}, \texttt{cell[i]}.
+
+\infobox{Speicherlayout (76\,B/Atom)}{%
+  8 Felder: \texttt{px,py,vx,vy,fx,fy} (je 8\,B $\times$ 6) + \texttt{nbr}
+  (4\,B $\times$ 6, sechs Nachbarn im Dreiecksgitter) + \texttt{cell} (4\,B)
+  = 76\,B/Atom.
+  Bei $N = 2\,\text{Mio}$: Gesamtdatensatz $\approx 152\,$MB.
+  Dieses Maß wird in Abschnitt~\ref{sec:cache} zur Cache-Analyse verwendet.
+}
+
+SoA hat drei Vorteile für diese Simulation:
+\begin{enumerate}[itemsep=2pt]
+\item \textbf{Cache-Effizienz:} Der Kraftkern iteriert über $N$ Atome und
+  braucht dabei $px$, $py$, $nbr$ sequenziell -- bei SoA ist das ein
+  einziger linearer Speicherzugriff.
+\item \textbf{Vektorisierbarkeit:} SIMD-Einheiten (AVX-512 auf EPYC)
+  können mehrere Atome gleichzeitig laden und rechnen.
+\item \textbf{GPU-Kompatibilität:} CUDA-Kernel können mit einem Thread pro
+  Atom arbeiten und koaleszente Speicherzugriffe machen (Abschnitt~\ref{sec:cuda}).
+\end{enumerate}
+
+\subsection{Ortsraum-Zerlegung: Cell List}
+\label{sec:celllist}
+
+Ohne weitere Maßnahme wäre die Komplexität des Kraftkerns $O(N^2)$ -- für
+2\,Mio Atome nicht praktikabel. Die \textbf{Cell List} löst das
+(Abb.~\ref{fig:celllist}):
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.45\linewidth]{M3_cell_list.png}
+  \caption{Cell-List-Schema. Der Raum wird in Zellen der Größe $R_\text{cut}$
+    unterteilt. Für ein Atom (rot) genügt es, die 9 Nachbarzellen (blaues Band)
+    zu durchsuchen. Verkettete Listen über \texttt{cell\_head}/\texttt{cell\_next}
+    machen die Nachbarsuche $O(N)$ statt $O(N^2)$.}
+  \label{fig:celllist}
+\end{figure}
+
+Jede Zelle hat Seitenlänge $\geq R_\text{cut}$; potenzielle Bindungspartner
+liegen garantiert in den 9 umgebenden Zellen. Für $N$ Atome mit konstanter
+Dichte gilt: mittlere Atome pro Zelle $= O(1)$, also Gesamtkomplexität $O(N)$.
+Die Cell List muss nach jeder Migration neu aufgebaut werden, was im
+MPI-Zeitschritt als eigenständige Phase (\texttt{cells}) gemessen wird.
+
+\subsection{Integrator: Velocity-Verlet}
+\label{sec:integrator}
+
+Die Bewegungsgleichungen werden mit \textbf{Velocity-Verlet} in
+Kick-Drift-Kick-Form integriert:
+\begin{align}
+\bm{v}_{i}^{n+1/2} &= \bm{v}_{i}^{n} + \tfrac{\Delta t}{2}\,\bm{F}_{i}^{n}/m
+  \quad \text{(Kick)} \label{eq:kick1}\\
+\bm{r}_{i}^{n+1}   &= \bm{r}_{i}^{n} + \Delta t\,\bm{v}_{i}^{n+1/2}
+  \quad \text{(Drift)} \label{eq:drift}\\
+\bm{v}_{i}^{n+1}   &= \bm{v}_{i}^{n+1/2} + \tfrac{\Delta t}{2}\,\bm{F}_{i}^{n+1}/m
+  \quad \text{(Kick)} \label{eq:kick2}
+\end{align}
+Als symplektischer Integrator erhält Velocity-Verlet die Phasenraum-Struktur
+und zeigt keinen systematischen Energiedrift -- im Gegensatz zum
+expliziten Euler-Verfahren. Abbildung~\ref{fig:energiecheck} belegt, dass die
+Gesamtenergie über 3000 Schritte unter $0{,}6\,\%$ (seriell) bzw.\
+$0{,}22\,\%$ (A100, fp64) driftet. Abbildung~\ref{fig:timeseries} zeigt die
+zugehörige Zeitentwicklung der Kaskade.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{vid_S1_energy.png}
+  \caption{Energiebilanz (Korrektheitsprüfung). Die Gesamtenergie $E_\text{total}$
+    (dicke schwarze Linie) bleibt praktisch konstant. Der prozentuale Drift
+    liegt unter $0{,}6\,\%$ für die serielle CPU-Version und unter $0{,}22\,\%$
+    für den A100 (fp64). Ohne diesen Nachweis wäre jede Performance-Messung
+    wertlos.}
+  \label{fig:energiecheck}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{vid_S6_timeseries.png}
+  \caption{Kaskaden-Zeitentwicklung ($t = 0 \dots T$). Farbe = Geschwindigkeitsbetrag.
+    Ballistische Phase (Ausbreitung der Stoßfront) klingt ab $t \sim 1$ ab;
+    danach steht die Defektstruktur. Die Zeitskala $T = 3000\,\Delta t$ ist
+    gro\ss\  genug, damit die Kaskade vollständig zur Ruhe kommt.}
+  \label{fig:timeseries}
+\end{figure}
+
+% =====================================================================
+\FloatBarrier
+\section{MPI-Parallelisierung}
+\label{sec:mpi}
+
+\subsection{Zerlegungs-Strategie}
+
+\paragraph{1D-Domänenzerlegung in $y$-Richtung.}
+Der 2D-Raum wird in horizontale Streifen zerlegt, jeweils ein Streifen pro
+MPI-Rank. Die 1D-Zerlegung hat einen entscheidenden Vorteil: von den $P-1$
+Rank-Grenzen kreuzt beim Netzwerkwechsel (z.B. von Knoten 1 zu Knoten 2)
+genau eine einzige -- die Inter-Node-Kommunikation bleibt minimal, wie
+Abschnitt~\ref{sec:nodecomp} belegt.
+
+\paragraph{Gather-Formulierung.}
+Jedes Atom summiert \emph{nur seine eigene Kraft}, Newton 3 wird nicht
+genutzt. Das bedeutet: jedes Atompaar $(i,j)$ wird zweimal ausgewertet.
+Diese scheinbar ineffiziente Formulierung hat drei Gründe:
+\begin{enumerate}[itemsep=2pt]
+\item \textbf{Korrektheit über Rank-Grenzen}: Ein Geisteratom (Kopie aus dem
+  Nachbar-Rank) hat keinen ``Besitzer'', der die Hälfte der Kraft
+  einsammeln würde.
+\item \textbf{Atomicity-Freiheit auf der GPU}: Kein \texttt{atomicAdd} nötig
+  (Abschnitt~\ref{sec:cuda}).
+\item \textbf{Cache-Effizienz}: Jeder Thread schreibt nur an \emph{einen}
+  Speicherplatz.
+\end{enumerate}
+
+\subsection{Phasen im MPI-Zeitschritt}
+
+Jeder MPI-Zeitschritt besteht aus sechs messbaren Phasen:
+
+\begin{center}\small
+\begin{tabular}{@{}lllr@{}}
+\toprule
+Phase & Aufgabe & Typ & Anteil @\,1 Kern \\
+\midrule
+\texttt{force}   & Federn + Abstoßung + Bindungsbruch (Gather)   & Rechnung   & 89\,\% \\
+\texttt{hash}    & gid $\to$ lokaler Index (für Bindungsbruch)    & Rechnung   &  6\,\% \\
+\texttt{cells}   & Cell List neu aufbauen (lokal + Halo)          & Rechnung   &  2\,\% \\
+\texttt{halo}    & Geisteratome von Nachbar-Ranks kopieren        & Komm.      & $<$1\,\% \\
+\texttt{migrate} & Besitzwechsel beim Grenzübertritt              & Komm.      & $<$1\,\% \\
+\texttt{energy}  & Globale Energiediagnose (\texttt{MPI\_Reduce}) & Diagnose   & $<$1\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Halo-Austausch.}
+Jeder Rank sendet eine Kopie seiner Randatome (``Geisteratome'') an die
+beiden Nachbar-Ranks. Das passiert jeden Zeitschritt, weil die Federn
+über Ranggrenzen hinweg wirken können. Das Halo-Volumen ist proportional
+zur Gitterbreite $N_x$ (konstant bei 1D-Zerlegung), was den Kommunikationsanteil
+bei kleinen Rank-Zahlen harmlos hält, aber bei vielen Ranks relativ wächst.
+
+\textbf{Atom-Migration.}
+Überquert ein Atom seine Rank-Grenze, wechselt es den ``Besitzer''. Das
+Atom wird mit allen Daten (Position, Geschwindigkeit, Bindungstabelle)
+an den neuen Rank gesendet und beim alten gelöscht. In einer Kaskade
+betrifft das typischerweise nur wenige Atome pro Schritt.
+
+\subsection{Speicherkorrektheit: Valgrind-Analyse}
+\label{sec:valgrind}
+
+Neben der physikalischen Korrektheit (Energieerhaltung, Abb.~\ref{fig:energiecheck})
+prüft \emph{Valgrind Memcheck} zusätzlich die Speicherkorrektheit beider
+CPU-Implementierungen: ungültige Zugriffe, Verwendung uninitialisierten
+Speichers und Speicherlecks. Da Memcheck jeden Speicherzugriff
+instrumentiert und dadurch $20$--$50\times$ langsamer läuft, wurde nicht das
+$2$-Mio.-Atome-Benchmarkgitter verwendet, sondern ein kleines Gitter
+($80\times80 = 6400$ Atome, $300$ Schritte, \texttt{params\_valgrind.ini}).
+Dieses durchläuft dieselben Code-Pfade (Allokation, Kraftberechnung, Cell-List,
+Halo-Austausch, Migration), ist aber in Sekunden statt Stunden analysiert.
+
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize, breaklines=true]
+# Serielle Version (mit gcc gebaut, damit keine MPI-Bibliothek stoert):
+gcc -O1 -g -lm -march=native -o cascade_serial cascade_serial.c
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes \
+         ./cascade_serial params_valgrind.ini
+
+# MPI-Version (2 Raenge, ein Logfile pro Rang):
+mpicc -O1 -g -lm -march=native -o mpi_cascade mpi_cascade.c
+mpirun --oversubscribe -np 2 valgrind --leak-check=full \
+       --show-leak-kinds=definite,indirect --track-origins=yes \
+       --log-file=vg_rank_%q{OMPI_COMM_WORLD_RANK}.txt \
+       ./mpi_cascade params_valgrind.ini
+\end{lstlisting}
+
+\begin{center}\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Kategorie & \texttt{cascade\_serial} & \texttt{mpi\_cascade} (je Rang) \\
+\midrule
+Ungültige Zugriffe (App) & 0 & 0 \\
+Uninit.\ Werte (App)     & 0 & 0 \\
+\emph{definitely lost} (App) & 0 & $\approx 1{,}22$\,MB \\
+\emph{still reachable} (App) & $\approx 0{,}96$\,MB & --- \\
+Fehler in MPI-Bibliothek & --- & $\sim 10^7$ (Fehlalarme) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Serielle Version: sauber.} Memcheck meldet
+\emph{0 errors from 0 contexts}. Die $\approx 0{,}96$\,MB \emph{still reachable}
+sind die einmalig allokierten SoA-Arrays, die bewusst bis Programmende gehalten
+werden; alle Allokationen pro Zeitschritt werden korrekt freigegeben.
+
+\paragraph{MPI-Version: keine echten Fehler im Anwendungscode.} Die $\sim 10^7$
+gemeldeten Fehler stammen \emph{sämtlich} aus dem Inneren von OpenMPI
+(\texttt{MPI\_Init}) -- ein bekannter, harmloser Valgrind-Fehlalarm; kein
+einziger Fehler-Kontext zeigt auf \texttt{mpi\_cascade.c}. Die
+$\approx 1{,}22$\,MB \emph{definitely lost} sind die einmalig zum Start
+allokierten Strip-SoA-Felder, deren Zeiger beim Leak-Check (nach Rückkehr aus
+\texttt{main}) nicht mehr erreichbar sind. Es ist \emph{kein} mit der Laufzeit
+wachsendes Leck: den $44\,386$ Allokationen stehen $43\,730$ Freigaben
+gegenüber -- die Differenz sind genau die Startup-Felder.
+
+\infobox{Schlüsselergebnis Valgrind}{%
+Beide CPU-Versionen sind frei von ungültigen Speicherzugriffen und
+Verwendung uninitialisierter Werte im Anwendungscode. Es gibt \emph{kein}
+mit der Laufzeit wachsendes Speicherleck; sämtliche nicht freigegebene
+Speicher sind einmalige Startup-Allokationen, die das Betriebssystem beim
+Programmende zurückgibt. Die Fehlermeldungen der MPI-Version sind
+Bibliotheks-interne Valgrind-Fehlalarme aus \texttt{MPI\_Init}.}
+
+% =====================================================================
+\FloatBarrier
+\section{Compiler-Optimierungen (Einzelkern)}
+\label{sec:compiler}
+
+Vor der Parallelisierung stellt sich die Frage: Wie viel bringt der Compiler?
+Gemessen mit verschiedenen Flag-Kombinationen auf einem EPYC-7763-Kern.
+
+\infobox{Schlüsselergebnis Compiler}{%
+  Baseline \texttt{-O0}: 113{,}7\,s. Schnellstes \emph{korrektes} Setup:
+  \texttt{-O3} mit 57{,}0\,s ($\approx 2{,}0\times$). \texttt{-Ofast/-ffast-math}
+  ist \emph{langsamer} und verletzt die Energieerhaltung.
+}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{H9_compiler_opt.png}
+  \caption{Compiler-Optimierungen auf einem EPYC-7763-Kern (Noctua 2), sortiert
+    nach Wandzeit. Grün markiert ist \texttt{-O3} als empfohlenes Setup.
+    \texttt{-O3} liefert $\approx 2\times$ Speedup gegenüber \texttt{-O0}.
+    \texttt{-Ofast} und \texttt{-ffast-math} umgehen IEEE-754-Regeln und
+    erzeugen nicht-assoziative Floating-Point-Operationen, was in einem
+    symplektischen Integrator grundsätzlich riskant für die Energieerhaltung ist.}
+  \label{fig:compiler}
+\end{figure}
+
+Warum bringt \texttt{-O3} nur den Faktor 2? Die \texttt{force}-Phase ist
+\emph{speicherbandbreiten-gebunden}: sie streamt $\sim 152$\,MB Atom-Daten
+pro Schritt und rechnet dabei pro Atom nur wenige Floating-Point-Operationen.
+Bessere Instruktionen helfen nicht, wenn die Daten nicht schnell genug ankommen.
+Dieses Muster zieht sich wie ein roter Faden durch alle folgenden Messungen.
+
+% =====================================================================
+\FloatBarrier
+\section{Strong Scaling -- fester Problemumfang}
+\label{sec:strong}
+
+\textbf{Setup:} $N = 1\,999\,396$ Atome ($1414 \times 1414$), 1--256 Kerne,
+Phasentimer aktiv, ein Lauf je Rankzahl (Wiederholungsmessungen mit
+identischem Setup liefert der Optimierungsvergleich in Abschnitt~\ref{sec:opt}).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{H1_strong_scaling.png}
+  \caption{Strong Scaling. Oben: Speedup $S = T(1)/T(P)$ vs.\ $P$, mit
+    idealer Gerade (grau). Unten: Effizienz $S/P$ in \%. Die U-Form mit
+    Minimum bei 16 Kernen und superlinearem Maximum ($133\,\%$) bei 128 Kernen
+    ist kein Messfehler -- Abschnitt~\ref{sec:cache} erklärt sie quantitativ
+    durch Cache-Effekte.}
+  \label{fig:strong}
+\end{figure}
+
+\paragraph{Schlüsselzahlen.}
+\begin{center}\small
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Kerne & $T(P)$ [s] & Speedup & Effizienz \\
+\midrule
+1   & 1152{,}9 & 1{,}0   & 100\,\% \\
+4   &  360{,}1 & 3{,}2   &  80\,\% \\
+8   &  217{,}2 & 5{,}3   &  66\,\% \\
+16  &  152{,}6 & 7{,}6   &  47\,\% (Minimum) \\
+32  &   59{,}5 & 19{,}4  &  61\,\% \\
+64  &   22{,}5 & 51{,}2  &  80\,\% \\
+128 &    6{,}7 & 170{,}8 & 133\,\% (superlinear!) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Drei Regionen der Effizienzkurve.}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{1$\to$16 Kerne (Abstieg):}
+  Die 1D-Zerlegung fügt bei jedem neuen Rank eine Halo-Grenze hinzu.
+  Das Halo-Volumen pro Rank bleibt konstant (volle Breite $N_x$), während
+  die Rechenarbeit pro Rank schrumpft. Bei 16 Kernen liegt der
+  Kommunikationsanteil (Maximum über die Ranks) bei $\approx 35\,\%$ der
+  Wandzeit; er wächst bis 32 Kerne weiter auf $\approx 60\,\%$
+  (Abb.~\ref{fig:phases}), wird dort aber bereits von den einsetzenden
+  Cache-Effekten überkompensiert.
+\item \textbf{16$\to$64 Kerne (Erholung):}
+  Cache-Effekte setzen ein: die Datenmenge pro Rank sinkt unter
+  $\approx 9$\,MB und nähert sich dem L3-Cache (4\,MB/Rank).
+\item \textbf{64$\to$128 Kerne (superlinear):}
+  Datensatz/Rank liegt weit unterhalb des L3-Limits -- der
+  \texttt{force}-Kernel wird cache-resident. Der Speedup übersteigt das
+  Ideal. Das ist quantitativ vorhergesagt durch das Cache-Argument
+  (Abschnitt~\ref{sec:cache}).
+\end{itemize}
+
+% =====================================================================
+\FloatBarrier
+\section{Cache-Argument: Warum die Effizienz superlinear wird}
+\label{sec:cache}
+
+\infobox{AMD EPYC 7763 L3-Cache}{%
+  AMD EPYC 7763: 8 Cache Dies (CCDs), je 32\,MB L3, je 8 Kerne.
+  $\Rightarrow$ L3-Anteil pro Rank: $32\,\text{MB} / 8 = 4\,\text{MB}$.
+  SoA-Datensatz: $76\,\text{B/Atom} \times N / P$.
+  Bei $P = 64$ Ranks: $76 \times 1{,}999 \cdot 10^6 / 64 \approx 2{,}4$\,MB
+  $< 4$\,MB $\Rightarrow$ cache-resident.
+}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{cache_argument.png}
+  \caption{Cache-Argument (Dual-Achsen-Plot). Blaue Kurve (linke Achse, log):
+    Datensatz pro Rank in MB, sinkt mit $1/P$. Gestrichelte Linie: L3-Schwelle
+    bei 4\,MB/Rank. Rote Kurve (rechte Achse): parallele Effizienz. Der
+    Datensatz unterschreitet die L3-Schwelle zwischen 32 und 64 Ranks;
+    die Effizienz erholt sich dort und übersteigt bei 128 Ranks 100\,\%.
+    Skript: \texttt{scripts/python/plot\_cache\_argument.py}.}
+  \label{fig:cache}
+\end{figure}
+
+Der Mechanismus ist direkt: Die \texttt{force}-Phase streamt die Arrays
+\texttt{px, py, nbr} für jedes Atom. Solange der Datensatz nicht in den
+L3-Cache passt, muss er bei jedem Schritt aus dem DRAM geladen werden
+(Bandbreite: ca.\ 400\,GB/s pro EPYC-Knoten, geteilt unter allen Kernen).
+Sobald er in den L3 passt, ist er cache-resident: der Kernel sieht
+$\sim 2$\,TB/s effektive Bandbreite -- also $5\times$ so viel. Genau das
+erklärt den superlinearen Sprung.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{H2_phase_breakdown.png}
+  \caption{Phasenbreakdown über alle Kerne. Links: absolute Zeiten (log-$y$)
+    -- \texttt{force} (blau) fällt überproportional. Rechts: normierter
+    Stack -- der Kommunikationsanteil (\texttt{halo}+\texttt{migrate},
+    Rottöne) wächst mit der Rankzahl deutlich an, während \texttt{force}
+    dominant bleibt.}
+  \label{fig:phases}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{H3_compute_vs_comm.png}
+  \caption{Rechnen vs.\ Kommunikation. Rechenzeit (force+cells+hash, blau)
+    fällt schneller als $1/P$ -- superlinear wegen Cache.
+    Kommunikationszeit (halo+migrate, rot) wächst zunächst und sinkt erst
+    bei voller Knotenbelegung. Der Flaschenhals wandert mit der Rankzahl.}
+  \label{fig:compute-comm}
+\end{figure}
+
+% =====================================================================
+\FloatBarrier
+\section{1-Knoten vs.\ 2-Knoten-Vergleich}
+\label{sec:nodecomp}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.42\linewidth]{H8_node_comparison.png}
+  \caption{1-Knoten vs.\ 2-Knoten. Bei überlappenden Rank-Zahlen ($P = 64, 128$)
+    sind die Wandzeiten praktisch identisch. In der 1D-Zerlegung
+    kreuzt genau eine von $P-1$ Rank-Grenzen den Inter-Node-Link --
+    die Netzwerkkosten sind vernachlässigbar.}
+  \label{fig:nodes}
+\end{figure}
+
+Der 256-Kerne-Punkt (nur 2-Knoten erreichbar) zeigt, dass die Superlinearität
+auch über Knoten-Grenzen hinweg anhält. Die 1D-Zerlegung ist robust gegenüber
+der Netzwerktopologie: von den $P-1$ Rank-Grenzen sind $(P-2)$ intra-node und
+genau eine inter-node.
+
+% =====================================================================
+\FloatBarrier
+\section{Weak Scaling -- variable Problemgröße}
+\label{sec:weak}
+
+\textbf{Setup:} Problemgröße wächst proportional zur Rankzahl (konstante
+Atomzahl pro Rank). Im Idealfall konstante Wandzeit.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{H5_weak_scaling.png}
+  \caption{Weak Scaling. Links: Wandzeit -- bis 16 Kerne nahezu ideal,
+    dann monoton steigend auf $\approx 162$\,s bei 256 Kernen.
+    Rechts: Weak-Effizienz $T_0/T_P$ -- sinkt auf 23\,\%.}
+  \label{fig:weak}
+\end{figure}
+
+\newpage
+
+\paragraph{Mechanismus: gesättigte Speicherbandbreite.}
+Im Weak Scaling bleibt die Datenmenge \emph{pro Rank} konstant -- aber die
+\emph{gemeinsame} Speicherbandbreite eines Knotens ist physikalisch fest und
+wird von allen Kernen geteilt. Bis 16 Kerne ist sie nicht ausgelastet
+(flache Kurve). Ab $\approx 32$ Kernen ist sie gesättigt -- mehr Kerne
+liefern mehr Rechenwerke, aber nicht mehr Speicherdurchsatz. Jeder
+weitere Kern wartet auf Daten.
+
+\infobox{Einheitliche Diagnose}{%
+  Strong Scaling: superlinear wegen Cache. Weak Scaling: bricht ein wegen
+  Speicherbandbreite. \textbf{Beide Befunde zeigen denselben Engpass aus
+  verschiedenen Blickwinkeln}: der Code ist memory-bound, nicht
+  compute-bound und nicht kommunikationsgebunden.
+}
+
+% =====================================================================
+\FloatBarrier
+\section{Optimierungsvergleich: Non-Blocking Halo und Re-Sorting}
+\label{sec:opt}
+
+Zwei klassische HPC-Optimierungen wurden als Schalter implementiert und
+gemessen:
+
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Non-blocking Halo:} \texttt{MPI\_Isend/Irecv} mit
+  Richtungs-Overlap -- beide Austauschrichtungen laufen gleichzeitig
+  statt nacheinander (kein Überlappen mit Rechnung).
+\item \textbf{Periodisches Re-Sorting:} Umsortieren der SoA-Arrays
+  nach räumlicher Lokalität -- Cache-Hygiene nach Atom-Migration.
+\end{itemize}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{H6_opt_compare.png}
+  \caption{Optimierungsvergleich über 1--128 Kerne. Links: Speedup-Kurven ohne
+    (blau) und mit Optimierung (rot) liegen praktisch deckungsgleich. Rechts:
+    relative Zeitersparnis liegt im $\pm 2\,\%$-Rauschband, im Mittel
+    $+0{,}8\,\%$.}
+  \label{fig:opt}
+\end{figure}
+
+\paragraph{Warum beide nichts bringen.}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Non-blocking Halo halbiert bestenfalls die Zeit der beiden
+  Austauschrichtungen.} Das ausgetauschte Datenvolumen ist klein; die
+  gemessene \texttt{halo}-Zeit ist weit größer, als das reine Volumen
+  erklären würde -- sie ist überwiegend Warte-/Synchronisationszeit auf
+  den Nachbar-Rank, und dieses Warten verschwindet durch
+  \texttt{Isend/Irecv} nicht.
+\item \textbf{Re-Sorting greift nur bei starker Cache-Degradation durch Migration.}
+  In einer Kaskade ist die Bewegung räumlich lokalisiert -- kaum ein Atom
+  überquert eine Rank-Grenze. Die Speicherordnung degradiert kaum; Re-Sorting
+  kostet fast genauso viel wie es spart.
+\end{itemize}
+
+\emph{Diese Null-Ergebnisse sind das eigentliche Ergebnis, kein Versagen.}
+Sie beweisen unabhängig von den Scaling-Kurven: der Flaschenhals ist die
+Speicherbandbreite.
+
+% =====================================================================
+\FloatBarrier
+\section{CUDA-Portierung}
+\label{sec:cuda}
+
+\subsection{Architektur-Entscheidungen}
+
+Die GPU-Version portiert dieselbe Gather-Formulierung auf CUDA:
+\textbf{ein Thread pro Atom}, $i = \texttt{blockIdx.x} \cdot \texttt{blockDim.x}
++ \texttt{threadIdx.x}$.
+
+\paragraph{Keine Atomics im Kraftkern.}
+Da jeder Thread nur die Kraft auf \emph{sein} Atom berechnet, gibt es keinen
+konkurrierenden Schreibzugriff. Jedes Paar $(i,j)$ wird zweimal ausgewertet
+(wie in der CPU-Version), aber dafür keine \texttt{atomicAdd}-Operationen.
+Atomics sind auf GPU sehr teuer; die doppelte Rechenarbeit ist billiger als
+eine Synchronisation auf dem gemeinsamen Datenpfad.
+
+\paragraph{Block-Größe 256.}
+Aus dem Sweep über Block-Größen (128, 256, 512, 1024) ergibt sich 512 als
+leicht bestes und 256 als praktisch gleichwertig. Verwendet wird $T = 256$
+(gut teilbar, gute Auslastung bei $N = 2$\,Mio Atomen: $7811$ Blöcke).
+
+\subsection{Benchmark-Ergebnis: A100-SXM4-40GB}
+\label{sec:a100bench}
+
+\infobox{A100 (fp64) Headline-Ergebnis}{%
+  $N = 1\,999\,396$ Atome, 3000 Schritte, 5 Wiederholungen.
+  Median: \textbf{1{,}5765\,s} = \textbf{525\,µs/Schritt} =
+  \textbf{3805\,Matom/s}.\\
+  Force-Kernel: 259\,µs/Aufruf (48\,\% der Zeitschleife).\\
+  Energie-Drift: 0{,}22\,\% (fp64, symplektisch).\\
+  H2D-Transfer (184\,MB): 14\,ms (14\,GB/s).
+}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{tts.png}
+  \caption{Time-to-Solution-Vergleich ($N \approx 2$\,Mio Atome, 3000 Schritte).
+    Links: Wandzeit auf Log-Skala; Rechts: Speedup relativ zu 1 CPU-Kern.
+    Der A100 (fp64) ist \textbf{731-fach} schneller als 1 EPYC-Kern und
+    \textbf{14-fach} schneller als 64 EPYC-Kerne.
+    Skript: \texttt{scripts/python/plot\_tts.py}.}
+  \label{fig:tts}
+\end{figure}
+
+\paragraph{fp32 vs.\ fp64.}
+Bei fp32 halbiert sich die zu bewegende Datenmenge -- ein
+bandbreitengebundener Kernel kann also theoretisch $2\times$ schneller laufen.
+Resultat: fp32 läuft in 0{,}999\,s ($\approx 1{,}6\times$ schneller als fp64),
+aber der Energie-Drift steigt auf $0{,}94\,\%$ -- noch tolerierbar für
+Ensemble-Statistik, aber grenzwertig für präzise Einzelkaskaden-Analyse.
+
+\paragraph{Tesla T4 zum Vergleich.}
+Auf der Tesla T4 läuft dieselbe Konfiguration in 19{,}09\,s -- kaum schneller
+als die 64 EPYC-Kerne (22{,}5\,s). Der Grund ist die stark beschnittene
+fp64-Rechenleistung der T4 (Turing, sm\_75): $\approx 0{,}25$\,TFLOPS
+(1/32 der fp32-Leistung) gegenüber 9{,}7\,TFLOPS fp64 des A100.
+
+\begin{center}\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+System & $T$ [s] & Speedup vs.\ 1 Kern & Speedup vs.\ 64 Kerne \\
+\midrule
+CPU 1 Kern    & 1152{,}9 & 1{,}0$\times$ & -- \\
+CPU 64 Kerne  &   22{,}5 & 51$\times$    & 1{,}0$\times$ \\
+Tesla T4      &   19{,}1 & 60$\times$    & 1{,}2$\times$ \\
+A100 fp64     &    1{,}58 & 731$\times$  & 14$\times$ \\
+A100 fp32     &    0{,}999 & 1154$\times$ & 23$\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\FloatBarrier
+% =====================================================================
+\section{GPU-Sättigung: Skalierung mit der Problemgröße}
+\label{sec:saturation}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{gpu_saturation.png}
+  \caption{GPU-Sättigungskurve: Durchsatz in Matom/s als Funktion der
+    Systemgröße $N$ (A100, fp64). Bereits ab $N \approx 250\,000$ Atomen
+    ist der Durchsatz konstant auf $\approx 3800$\,Matom/s -- die GPU hat
+    genug Threads um alle SMs vollständig auszulasten.
+    Skript: \texttt{scripts/python/plot\_gpu\_saturation.py}.}
+  \label{fig:saturation}
+\end{figure}
+
+Die Plateaustruktur belegt, dass die GPU ab $N \approx 250$\,k voll
+gesättigt ist. Für $N < 250$\,k reichen die Threads nicht aus, um alle
+108 SMs des A100 zu füllen. Für $N > 250$\,k skaliert die Laufzeit
+linear mit $N$ -- der Durchsatz ist konstant.
+
+\FloatBarrier
+
+\newpage
+% =====================================================================
+\section{ncu-Profiling: Warum ist der A100 trotzdem kein Optimum?}
+\label{sec:ncu}
+
+\subsection{SpeedOfLight: Compute vs.\ Memory}
+
+NVIDIA Nsight Compute (ncu) misst den Kernel als Prozentsatz des
+theoretischen Peak-Durchsatzes:
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{ncu_profiling.png}
+  \caption{ncu-Profiling des \texttt{k\_force}-Kernels.
+    Links: Kernel-Zeitanteile pro Schritt (CPU vs.\ A100 fp64).
+    Mitte: SpeedOfLight-Throughput -- T4 ist compute-bound (87\,\%),
+    A100 ist latenz-limitiert (45\,\% Compute, 37\,\% Memory).
+    Rechts: Theoretische Okkupanz durch Registerlimitierung.
+    Skript: \texttt{scripts/python/plot\_ncu.py}.}
+  \label{fig:ncu}
+\end{figure}
+
+\paragraph{Befund A100.}
+\begin{itemize}[itemsep=2pt]
+\item Compute-Throughput: \textbf{45\,\%} (nicht compute-bound).
+\item Memory-Throughput: \textbf{37\,\%} (nicht vollständig memory-bound).
+\item Schlussfolgerung: Der Kernel ist \emph{latenz-limitiert} -- Threads
+  warten auf Daten aus dem DRAM, können nicht rechnen, und der Scheduler
+  hat nicht genug alternative Warps um die Latenz zu verstecken.
+\end{itemize}
+
+\paragraph{Befund Tesla T4.}
+\begin{itemize}[itemsep=2pt]
+\item Compute-Throughput: \textbf{87\,\%} -- klar compute-bound.
+\item Memory-Throughput: \textbf{8\,\%} -- sehr gering.
+\end{itemize}
+
+Der Unterschied: Die T4 hat viel weniger fp64-Rechenleistung
+($\approx 0{,}25$\,TFLOPS vs.\ 9{,}7\,TFLOPS beim A100), aber dieselbe
+Kernel-Struktur. Die begrenzte
+Rechenkapazität der T4 wird voll ausgelastet; beim A100 ist die Bandbreite
+der Engpass -- aber nur zu 37\,\% ausgenutzt.
+
+\subsection{Okkupanz: Registerlimitierung}
+\label{sec:occupancy}
+
+\infobox{Okkupanz-Rechnung (fp64, A100)}{%
+  Register pro Thread: 62 (gemessen mit \texttt{nvcc --ptxas-info}).
+  Register-Budget pro SM: 65\,536.
+  Maximale Blöcke/SM: $\lfloor 65536 / (62 \times 256) \rfloor = 4$.
+  Warps/SM bei 4 Blöcken: $4 \times 8 = 32$.
+  Max Warps/SM (A100): 64. $\Rightarrow$ \textbf{Okkupanz = 32/64 = 50\,\%}.
+}
+
+Mit nur 50\,\% Okkupanz hat der Scheduler nur halb so viele Warps
+verfügbar, um Speicherlatenz zu verstecken. Bei fp32 sinkt der
+Registerbedarf auf $\approx 48$ Register/Thread, was 5 Blöcke/SM
+ermöglicht und die Okkupanz auf 62\,\% erhöht.
+
+\paragraph{Naheliegender Hebel.}
+Um die Okkupanz zu verbessern, müsste die Register-Allokation reduziert
+werden, damit mehr Warps gleichzeitig je SM laufen und die Speicherlatenz
+besser versteckt wird. Der direkteste Weg dazu ist das Pragma
+\texttt{\_\_launch\_bounds\_\_(maxThreads, minBlocksPerSM)}, das \texttt{ptxas}
+zwingt, die Register je Thread so weit zu begrenzen, dass \texttt{minBlocksPerSM}
+Blöcke gleichzeitig Platz finden. Ob dieser Hebel \emph{tatsächlich} Leistung
+bringt, lässt sich direkt messen -- der nächste Abschnitt tut das.
+
+\FloatBarrier
+\subsection{Experiment: Occupancy-Hebel via \texttt{\_\_launch\_bounds\_\_}}
+\label{sec:launchbounds}
+
+Vier Builds wurden bei sonst identischem Code verglichen ($1414 \times 1414
+\approx 2$\,Mio Atome, fp64, Blockgröße 256, A100): \textbf{base} ohne
+Begrenzung sowie \textbf{lb4/lb6/lb8} mit \texttt{minBlocksPerSM} $= 4/6/8$.
+Die Absolutwerte dieser Messreihe (base: 3435\,Matom/s) stammen aus einer
+separaten Kampagne und liegen $\approx 10\,\%$ unter dem Headline-Benchmark
+aus Abschnitt~\ref{sec:a100bench}; für die Aussage zählt der Vergleich der
+Varianten untereinander.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.85\linewidth]{launch_bounds_plot.png}
+  \caption{Occupancy-Hebel via \texttt{\_\_launch\_bounds\_\_}. Blau: per ncu
+    gemessene Okkupanz; orange: Durchsatz relativ zur \texttt{base}-Variante.
+    \texttt{lb4} ist nicht separat dargestellt, da es (siehe Tabelle unten)
+    mit 62 Reg/Thread identisch zu \texttt{base} ist und keine eigene Wirkung zeigt.
+    Die Begrenzung hebt die Okkupanz von 45\,\% (base, 62 Reg) auf 66\,\%
+    (lb6, 40 Reg) -- der \textbf{Durchsatz bleibt jedoch flach}
+    (3435 $\to$ 3406\,Matom/s). Bei lb8 (32 Reg, theoretisch volle Okkupanz)
+    kippt es: \textbf{Register-Spilling} kostet 17\,\% Durchsatz.
+    Skript: \texttt{scripts/python/plot\_launch\_bounds.py}.}
+  \label{fig:launchbounds}
+\end{figure}
+
+\begin{center}\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Variante & Reg/Thread & Okkupanz & force-Kernel & Durchsatz \\
+\midrule
+base & 62 & 45{,}1\,\% (ncu) & 276\,µs & 3435\,Matom/s \\
+lb4  & 62 & = base          & = base  & 3435\,Matom/s \\
+lb6  & 40 & 66{,}4\,\% (ncu) & 262\,µs & 3406\,Matom/s \\
+lb8  & 32 & $\sim$100\,\% (theor.) & 387\,µs & 2850\,Matom/s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Interpretation.}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{lb4 ist wirkungslos:} Der Kernel braucht ohnehin nur 62 Register,
+  was bereits 4 Blöcke/SM erlaubt -- die Begrenzung ändert nichts.
+\item \textbf{lb6 ist der Kernbefund:} Die Register sinken von 62 auf 40, die
+  \emph{gemessene} Okkupanz steigt von 45\,\% auf 66\,\% -- der Hebel greift
+  also nachweislich. Trotzdem bleibt der Durchsatz im Messrauschen unverändert.
+  \emph{Mehr Okkupanz übersetzt sich nicht in mehr Leistung.}
+\item \textbf{lb8 zeigt die Kehrseite:} Bei 32 Registern tritt Register-Spilling
+  auf, der Kraft-Kernel wird $\approx 40\,\%$ langsamer (Gesamtdurchsatz $-17\,\%$)
+  -- der klassische Trade-off zu aggressiver Registerbegrenzung.
+\end{itemize}
+
+\infobox{Diagnose experimentell bestätigt}{%
+  Die Okkupanz ließ sich gezielt von 45\,\% auf 66\,\% anheben, ohne dass der
+  Durchsatz folgte. Das \textbf{bestätigt die ncu-Diagnose}: Der Kraft-Kernel
+  ist latenz- bzw.\ bandbreitengebunden, \emph{nicht} occupancy-limitiert.
+  Zusätzliche Okkupanz ist erzeugbar, aber wirkungslos -- der Engpass liegt
+  am Datenlayout (SoA-Bandbreite, Zugriffskoaleszenz), nicht an der Zahl
+  aktiver Warps. Ein vollwertiges Negativergebnis: der laut Diagnose richtige
+  Hebel wurde umgesetzt, vermessen und als wirkungslos nachgewiesen.
+}
+
+\FloatBarrier
+\subsection{Weitere Optimierungsversuche: Launch-Overhead und Präzision}
+\label{sec:cudaopt}
+
+Die ncu-Diagnose (Abschnitt~\ref{sec:ncu}) nennt zwei naheliegende Hebel
+neben der Okkupanz: den Host-seitigen Kernel-Start-Overhead und die
+Rechenpräzision. Beide wurden zusätzlich zum Okkupanz-Experiment aus
+Abschnitt~\ref{sec:launchbounds} gezielt getestet und gemeinsam mit diesem
+in einer konsolidierten Messreihe verglichen (vier Varianten, sonst
+identischer Code, $\approx 2$\,Mio Atome, fp64).
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.95\linewidth]{cuda_opt_plot.png}
+  \caption{Vier GPU-Varianten im Vergleich: \texttt{base}, \texttt{lb}
+    (\texttt{\_\_launch\_bounds\_\_}, 40 statt 62 Register), \texttt{graph}
+    (CUDA Graphs) und \texttt{lb+graph}. Links: die Okkupanz lässt sich
+    durch \texttt{lb} von 45\,\% auf 66\,\% anheben. Rechts: der
+    Gesamtdurchsatz bleibt über alle Varianten hinweg flach bei
+    $\approx 3800$\,Matom/s ($\pm 1\,\%$, im Bereich der Messstreuung).
+    Skript: \texttt{scripts/python/plot\_cuda\_opt.py},
+    Daten: \texttt{results/cuda\_opt\_results.csv}.}
+  \label{fig:cudaopt}
+\end{figure}
+
+\paragraph{Launch-Overhead (CUDA Graphs).}
+Pro Zeitschritt werden fünf Kernel gestartet; über tausende Schritte
+summiert sich der Host-seitige Start-Overhead. Mit CUDA Graphs wird die
+feste Kernel-Sequenz einmalig aufgezeichnet (\texttt{cudaStreamBeginCapture})
+und anschließend pro Schritt mit einem einzigen \texttt{cudaGraphLaunch}
+abgespielt -- die Physik bleibt dabei unverändert. Der resultierende Gewinn
+liegt bei $\approx 1\,\%$ und ist damit vernachlässigbar. Der Energie-Drift
+ist in allen vier Varianten identisch.
+
+\paragraph{Präzision (fp32 statt fp64).}
+Der Wechsel auf einfache Genauigkeit (Abschnitt~\ref{sec:a100bench}) bringt
+Faktor $1{,}58\times$ statt der theoretisch möglichen $2\times$. Der Gewinn
+stammt im Wesentlichen aus der halbierten Datenmenge, nicht aus mehr
+Rechenleistung -- ein weiterer Beleg für die Bandbreiten- bzw.\ Latenzbindung.
+Für die Kaskaden-Ensembles (Teil~II) bleibt es dennoch bei fp64:
+Bindungsbrüche hängen an feinen Abstandsdifferenzen (Bruchschwelle
+$1{,}15\,L_0$), und der Energie-Drift verschlechtert sich unter fp32
+deutlich (0{,}94\,\% statt 0{,}22\,\%).
+
+\infobox{Fazit: drei Hebel, ein Engpass}{%
+  Höhere Okkupanz, reduzierter Launch-Overhead und reduzierte Präzision
+  verbessern die Leistung jeweils nicht wesentlich und weisen konsistent auf
+  denselben Engpass hin: die Speicher-Latenz und -Bandbreite des
+  \texttt{k\_force}-Kernels. Eine weiterführende Optimierung müsste am
+  Datenlayout und an der Zugriffskoaleszenz ansetzen statt an der
+  Auslastung. Damit bestätigt die GPU-Analyse denselben limitierenden
+  Faktor, der bereits die CPU- und Skalierungsergebnisse dieser Arbeit
+  bestimmt.
+}
+
+\FloatBarrier   % GPU-Grafiken (Saettigung, ncu, launch_bounds, cuda_opt) vor dem Fazit platzieren
+
+% =====================================================================
+\section{Fazit Teil I}
+\label{sec:fazit-hpc}
+
+\paragraph{Der durchgehende rote Faden: Speicherbandbreite.}
+
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Einzelkern (Compiler):} \texttt{-O3} = $2\times$. \texttt{-Ofast}
+  hilft nicht (und verletzt Korrektheit).
+\item \textbf{Strong Scaling:} U-förmig. Superlinear bei 128 Kernen durch
+  Cache-Effekt (Datensatz pro Rank unterschreitet die 4-MB-L3-Schwelle).
+\item \textbf{Weak Scaling:} Bricht ab 32 Kernen ein -- ges\"attigte Knotenbandbreite.
+\item \textbf{Optimierungen:} Non-blocking Halo und Re-Sorting bringen $+0{,}8\,\%$ --
+  die Kommunikation ist nicht der Engpass.
+\item \textbf{GPU:} A100 ist $731\times$ schneller als 1 Kern, läuft aber nur
+  mit 45\,\% Compute- und 37\,\% Memory-Auslastung -- latenz-limitiert.
+\item \textbf{Occupancy-Hebel (\texttt{\_\_launch\_bounds\_\_}):} Okkupanz
+  gezielt auf 66\,\% angehoben -- Durchsatz bleibt flach. Bestätigt die
+  Bandbreiten-/Latenz-Diagnose experimentell statt nur per Profiler.
+\item \textbf{CUDA Graphs \& Präzision:} Reduzierter Launch-Overhead
+  ($+1\,\%$) und fp32 statt fp64 ($1{,}58\times$ statt theor.\ $2\times$)
+  bringen beide keinen wesentlichen Zusatzgewinn -- drei unabhängige Hebel,
+  ein Engpass.
+\end{itemize}
+
+% =====================================================================
+% TEIL II: POWER LAW
+% =====================================================================
+\newpage
+\FloatBarrier
+\part{Power Law -- Skalenfreie Defektverteilung}
+\label{part:powerlaw}
+
+% =====================================================================
+\FloatBarrier
+\section{Theoretischer Hintergrund}
+\label{sec:powerlaw-theory}
+
+\subsection{Was ist ein Potenzgesetz?}
+
+Eine Wahrscheinlichkeitsverteilung $p(n)$ folgt einem Potenzgesetz, wenn
+\begin{equation}
+p(n) \propto n^{-(\alpha + 1)}, \qquad n \geq n_\text{min} > 0,
+\label{eq:powerlaw}
+\end{equation}
+mit einem Exponenten $\alpha > 0$. In der Literatur zur Strahlenschaden-Physik
+wird die Konvention $F(n) = A\,n^{-S}$ verwendet (Häufigkeit statt
+Wahrscheinlichkeitsdichte), mit $S = \alpha + 1$. Charakteristisch für
+Potenzgesetze ist das Fehlen einer ausgezeichneten Skala: es gibt keine
+``typische'' Clustergröße. Das ist das Kennzeichen \emph{selbstorganisierter
+Kritikalität} -- verwandte Phänomene sind Erdbebengrößen, Waldbrände,
+Netzwerk-Knotengrade.
+
+\paragraph{CCDF -- Complementary Cumulative Distribution Function.}
+Direkt aus den Daten schätzbar ist die \emph{komplementäre kumulative
+Verteilungsfunktion}
+\begin{equation}
+P(N \geq n) = \int_n^\infty p(n')\,dn' \propto n^{-S+1},
+\label{eq:ccdf}
+\end{equation}
+die im log-log-Plot als Gerade mit Steigung $-(S-1)$ erscheint.
+Die CCDF hat gegenüber einem Histogramm den Vorteil, keine Binning-Entscheidungen
+zu benötigen und den Schwanz der Verteilung weniger zu glätten.
+
+\subsection{Sand et al.\ (2013): Potenzgesetz in 3D-Wolfram}
+\label{sec:sand}
+
+Sand et al.\ führten vollständige MD-Simulationen von 150-keV-Kollisionskaskaden
+in Wolfram durch (PARCAS-Code, $\approx 100$ Kaskaden, drei verschiedene
+interatomare Potenziale). Wolfram (W) ist das Kandidatmaterial für die
+erste Wand in Fusionsreaktoren wegen hoher Schmelztemperatur,
+guter Wärmeleitfähigkeit und geringer Neutronenaktivierung.
+
+\paragraph{Schlüsselbefunde.}
+\begin{itemize}[itemsep=2pt]
+\item Die Größenverteilung der Zwischengitteratom-Cluster (SIA-Cluster)
+  folgt über fast drei Größenordnungen dem Potenzgesetz:
+  \begin{equation}
+  F(n) = A\,n^{-S}, \quad A = 7{,}45 \pm 1{,}52,\quad S = 1{,}63 \pm 0{,}07
+  \label{eq:sand}
+  \end{equation}
+\item In $\approx 100$ Kaskaden wurde \emph{keine einzige} Subkaskaden-Fragmentierung
+  beobachtet. Das Schmelzvolumen bleibt kompakt (zusammenhängend, $\sim 30\,000$
+  Atome, mittlere Energiedichte $\approx 4$\,eV/Atom).
+\item \textbf{Kontrast zu Eisen:} In Fe fragmentieren Kaskaden bereits ab
+  $\approx 50$\,keV. W-Atome sind schwerer, Kollisionsquerschnitte größer,
+  Rückstoßatome langsamer -- deshalb kompaktere Schmelzbereiche.
+\item Die ``fraktale Natur'' der Kaskade (selbstähnliche Verzweigungsstruktur)
+  wurde direkt visualisiert. Sie ist die geometrische Ursache des Potenzgesetzes.
+\end{itemize}
+
+\paragraph{Versetzungsschleifen-Charaktere.}
+Große Schleifen ($> 80$ SIAs) haben durchgehend
+$\bm{b} = \frac{1}{2}\langle111\rangle$; kleinere zeigen zu etwa gleichen
+Teilen beide Burgers-Vektoren ($\frac{1}{2}\langle111\rangle$ und
+$\langle100\rangle$). Die Wahrscheinlichkeit einer Schleife mit $> 150$
+Defekten beträgt ca.\ 3\,\% -- in guter Übereinstimmung mit Experimenten.
+
+\subsection{De Backer et al.\ (2016): Subkaskaden und das fragmentierte Regime}
+\label{sec:debacker}
+
+De Backer et al.\ erweitern die Analyse auf hohe PKA-Energien, bei denen
+die Kaskade in räumlich getrennte \emph{Subkaskaden} zerfällt. Sie verwenden
+eine Subdomain-Dekompositionsmethode kombiniert mit der Binärkollisions-Näherung.
+
+\paragraph{Fragmentierungsenergie $E_\text{fr}$.}
+In allen 20 untersuchten Metallen (u.a.\ W, Fe, Be, Zr) existiert eine
+charakteristische Energie $E_\text{fr}$, oberhalb derer Subkaskaden entstehen.
+Die mittlere Anzahl der Sub-Domänen wächst als:
+\begin{equation}
+\nu(E) = \begin{cases}
+1 & E \leq 2^{-1/P} E_\text{fr} \\
+2\,\bigl(E/E_\text{fr}\bigr)^P & E \geq 2^{-1/P} E_\text{fr}
+\end{cases}
+\label{eq:subkaskaden}
+\end{equation}
+mit $P \in [0{,}8;\,1{,}2]$. Für Wolfram liegt $E_\text{fr} \approx 160$\,keV;
+über alle untersuchten Metalle reicht die Schwelle von 2 bis
+$\approx 500$\,keV. Die 2D-Kaskaden dieser Arbeit zeigen die Morphologie des
+nicht-fragmentierten Regimes -- ein zusammenhängendes Schadensgebiet statt
+räumlich getrennter Subkaskaden (Abb.~\ref{fig:damage}) -- und liegen damit
+unterhalb der (modellabhängigen) Fragmentierungsschwelle, konsistent mit dem
+sauberen Potenzgesetz, das hier beobachtet wird.
+
+\paragraph{Generalisiertes Skalierungsgesetz.}
+Oberhalb von $E_\text{fr}$ ergibt sich ein modifiziertes Skalierungsgesetz:
+\begin{equation}
+G(n, E) \sim n^{-S}\!\left[1 - \left(\frac{n}{n_\text{fr}}\right)^{1+S-\frac{3}{2}Q(E)}\right],
+\qquad E > E_\text{fr}
+\label{eq:debacker}
+\end{equation}
+Der Korrekturterm in der eckigen Klammer dämpft große Cluster: oberhalb
+von $E_\text{fr}$ ist die maximale Subkaskaden-Größe durch $E_\text{fr}$
+begrenzt, unabhängig von der Gesamtenergie. Dies erklärt die kontraintuitive
+Beobachtung, dass \emph{hochenergetische Kaskaden weniger große Defektcluster
+erzeugen als niederenergetische}.
+
+\paragraph{Verbindung zur eigenen Simulation.}
+Die 2D-Ergebnisse (Abschnitt~\ref{sec:powerlaw-results}) zeigen dasselbe
+skalenfreie Verhalten wie Sand et al. -- allerdings im nicht-fragmentierten
+Regime, mit niedrigerem Exponenten (2D vs.\ 3D erwartet eine Verschiebung).
+Für höhere $E_\text{PKA}$-Werte wäre analog zu De Backer ein
+Finite-Size-Cutoff durch Gittergrenzen zu erwarten.
+
+% =====================================================================
+\newpage
+\section{Ensemble-Setup}
+\label{sec:ensemble-setup}
+
+\paragraph{Parameter.}
+\begin{itemize}[itemsep=2pt]
+\item 1000 unabhängige Kaskaden: serieller Code, 128 Instanzen gleichzeitig
+  (\texttt{xargs -P 128}).
+\item Variiert: Einschlagort (zufällig), Einschlagwinkel (uniform in $[0, 2\pi)$),
+  PKA-Energie (log-uniform in $[200; 2500]$).
+\item Gitter: $250 \times 250$ Atome, $dt = 3 \times 10^{-4}$, 12\,000 Schritte.
+\item Cluster-Erkennung: Union-Find mit Schwellwert-Verschiebung $> 0{,}5\,L_0$
+  und Verbindungsradius $< 1{,}5\,L_0$.
+\end{itemize}
+
+\paragraph{Zwei Varianten: Heal vs.\ No Heal.}
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Heal:} Bindungen können sich nach dem Bruch wieder schließen,
+  falls die Atome sich re-annähern.
+\item \textbf{No Heal:} Einmal gebrochene Bindungen bleiben permanent offen.
+\end{itemize}
+
+Ergebnis: 1000 Läufe mit Healing ergeben \textbf{2391 gepoolte Cluster};
+1000 Läufe ohne Healing ergeben \textbf{2335 gepoolte Cluster}. Die Zahl
+der Cluster ist fast identisch -- das Healing beeinflusst die Statistik kaum,
+weil die Fragmentierung in der schnellen ballistischen Phase festgelegt wird,
+bevor das Healing-Fenster greift. Abbildung~\ref{fig:damage} zeigt die
+Schadensmorphologie beider Varianten im direkten Vergleich.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.9\linewidth]{vid_S2_damage.png}
+  \caption{Schadenskarte einer Kaskade (Zoom $\pm 15\,L_0$ um den Einschlag,
+    Lauf 999 aus dem Ensemble). Farbe = Verschiebung $\log|u|$; rote Segmente
+    = Bindungen, deren aktueller Abstand die Bruchschwelle $1{,}15\,L_0$
+    überschreitet (aus den Endzustands-CSVs geometrisch rekonstruiert, da
+    keine separate Bindungsliste vorliegt). Links: ohne Healing (18 gerissene
+    Bindungen im Zoomfenster). Rechts: mit Healing (11). Beide zeigen die
+    typische Morphologie: dichter Kern plus verzweigte Ausläufer. Healing dünnt
+    den Schaden etwas aus, ändert aber die Skalierungsstruktur nicht.
+    Skript: \texttt{scripts/python/plot\_damage\_map.py}.}
+  \label{fig:damage}
+\end{figure}
+
+% =====================================================================
+\FloatBarrier
+\section{Fit-Methodik: Maximum-Likelihood-Estimation}
+\label{sec:powerlaw-method}
+
+\subsection{Clauset et al.\ -- MLE statt Histogramm-Fit}
+
+Ein linearer Fit im log-log-Histogramm ist \emph{kein} statistisch valider
+Schätzer für den Potenzgesetz-Exponenten (Bias durch Binning, falsche
+Fehlerstruktur). Stattdessen kommt Maximum-Likelihood-Estimation (MLE)
+nach Clauset et al.\ (2009) zum Einsatz. Für ganzzahlige Daten mit unterem Cutoff $n_\text{min}$
+ist der MLE-Schätzer:
+\begin{equation}
+\hat{S} = 1 + n_\text{Stichprobe}\left[\sum_{i=1}^{n_\text{Stichprobe}}
+\ln\frac{x_i}{x_\text{min} - 1/2}\right]^{-1},
+\label{eq:mle}
+\end{equation}
+kombiniert mit dem Kolmogorov-Smirnov-Test zur Wahl des optimalen $x_\text{min}$.
+
+\subsection{Die $x_\text{min}$-Falle}
+\label{sec:xmin-falle}
+
+Naive Minimierung des KS-Abstands kann in einem ersten Auswertungsversuch in
+den Verteilungsschwanz ``fliehen'' und einen Artefakt-Exponenten
+$S \approx 29{,}6$ bei $x_\text{min} \approx 2571$ liefern (weit außerhalb
+des Datenbereichs). Die KS-Minimierung findet dann den Bereich hinter der
+``Klippe'' (Finite-Size-Cutoff) als besten Fit -- aber nur für die drei
+verbleibenden Punkte dort.
+
+\paragraph{Lösung.}
+$x_\text{min}$-Scan nur im datenreichen Rumpf:
+\begin{itemize}[itemsep=2pt]
+\item Minimum: $\geq 5\,\%$ der Datenpunkte über $x_\text{min}$ (mind.\ 50 Punkte),
+\item Maximum: $x_\text{min} < $ 90-Perzentil des Datensatzes.
+\end{itemize}
+Damit wird der Artefakt ausgeschlossen und der eigentliche Potenzgesetz-Rumpf
+robust gefittet.
+
+% =====================================================================
+\FloatBarrier
+\section{Ergebnisse: Power Law in 2D}
+\label{sec:powerlaw-results}
+
+Abbildung~\ref{fig:pooling} zeigt zunächst die statistische Konvergenz:
+erst ab $N \sim 50$ gepoolten Läufen wird der Potenzgesetz-Rumpf der CCDF
+sichtbar -- die 1000 Läufe des Ensembles sind also nicht Luxus, sondern
+Voraussetzung.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{E1_pooling_progression.png}
+  \caption{Pooling-Progression. Von $N = 1$ bis $N = 500$ werden zufällig
+    gezogene Läufe gepoolt und die CCDF der Clustergrößen geplottet.
+    Bei $N = 1$ liegt genau ein Punkt. Mit wachsendem $N$ füllt sich
+    die Verteilung; ab $N \sim 50$ ist die Potenzgesetzkurve sichtbar.
+    \emph{Statistisch aussagekräftige Aussagen erfordern ausreichend viele Kaskaden.}}
+  \label{fig:pooling}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.62\linewidth]{E2_powerlaw_overlay.png}
+  \caption{Power Law -- Overlay Heal vs.\ No Heal (je 1000 Läufe, 2391 bzw.\
+    2335 Cluster). CCDF im log-log-Plot. Beide Kurven fallen über fast drei
+    Größenordnungen als Gerade: skalenfreies Potenzgesetz. Der MLE-Fit liefert
+    $S = 1{,}41$ (Heal) und $S = 1{,}38$ (No Heal) bei $x_\text{min} = 4$.
+    Referenzlinie: Sand et al.\ (2013) 3D-Wolfram mit $S = 1{,}63$.}
+  \label{fig:powerlaw-overlay}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{E3_powerlaw_pdf_ccdf.png}
+  \caption{Duale Darstellung: PDF (log-binned Histogramm, links) und CCDF
+    (rechts), jeweils im Vergleich mit und ohne Healing. Der Finite-Size-Cutoff
+    am oberen Ende (Klippe) ist in beiden Darstellungen sichtbar: das endliche
+    Gitter setzt eine obere Grenze für die Clustergröße.}
+  \label{fig:pdf-ccdf}
+\end{figure}
+
+\paragraph{Schlüsselergebnis.}
+\begin{center}\small
+\begin{tabular}{@{}lrrrl@{}}
+\toprule
+Variante & Läufe & Cluster & $\hat{S}$ & $x_\text{min}$ \\
+\midrule
+Mit Healing    & 1000 & 2391 & $1{,}41 \pm 0{,}03$ & 4 \\
+Ohne Healing   & 1000 & 2335 & $1{,}38 \pm 0{,}03$ & 4 \\
+Sand et al. 3D & -- & -- & $1{,}63 \pm 0{,}07$ & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\FloatBarrier
+\section{Diskussion}
+\label{sec:powerlaw-discussion}
+
+\subsection{Warum $S < 1{,}63$?}
+
+Der gemessene Exponent $S \approx 1{,}4$ liegt systematisch unter dem 3D-Wert
+$S = 1{,}63$. Drei Effekte tragen dazu bei:
+\begin{enumerate}[itemsep=2pt]
+\item \textbf{Dimension (2D vs.\ 3D):}
+  In 2D hat die Kaskade einen kleineren Phasenraum für Fragmentierung
+  und weniger Wege zur Energieverteilung. Das führt tendenziell zu
+  mehr großen Clustern (flacherer CCDF, kleineres $S$).
+\item \textbf{Modellvereinfachung:}
+  Das Harmonic-Feder-Modell ohne reale Potenziale (ZBL, EAM) erfasst
+  nicht die korrekte energieabhängige Streuquerschnittsstruktur.
+  In realen Systemen hängt die Kaskadenmorphologie stark vom
+  interatomaren Potenzial ab.
+\item \textbf{Endliche Systemgröße:}
+  Das $250 \times 250$-Gitter setzt einen Finite-Size-Cutoff bei
+  großen Clustern (sichtbar als Klippe in Abb.~\ref{fig:pdf-ccdf}).
+  MLE mit $x_\text{min} = 4$ fittet nur den Rumpf; der Schwanz
+  ist nicht für die Schätzung verantwortlich.
+\end{enumerate}
+
+\subsection{Robustheit gegen Healing}
+
+Der Exponent $S$ ändert sich durch Healing von $1{,}38$ auf $1{,}41$ --
+eine Verschiebung von nur $\approx 2\,\%$. Die Erklärung ist konsistent
+mit dem Mechanismus: die Kaskadengeometrie (und damit die Clustergrößen)
+wird in der schnellen \emph{ballistischen Phase} festgelegt. Healing
+(langsame Annäherung von Atompaaren) greift erst danach und betrifft
+hauptsächlich kleine Cluster an der Peripherie. Die Skalierungsstruktur
+ist robust.
+
+\subsection{Verbindung zur De Backer-Theorie}
+
+De Backer et al.\ sagen voraus, dass große Cluster oberhalb von $E_\text{fr}$
+durch das modifizierte Skalierungsgesetz~\eqref{eq:debacker} unterdrückt werden.
+Im hier verwendeten Modell entspricht der Finite-Size-Cutoff einem analogen Effekt:
+das Gitter setzt eine maximale Subkaskaden-Größe. Für höhere PKA-Energien
+würde das modifizierte Skalierungsgesetz relevant -- das ist die
+natürliche Erweiterungsfrage.
+
+\subsection{Ausblick und offene Fragen}
+
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Bootstrap-Konfidenzintervalle:} Per \texttt{powerlaw}-Paket
+  (Alstott et al., 2014) wäre ein rigoroseres Konfidenzintervall zu bestimmen.
+\item \textbf{Subkaskaden-Schwellwert:} Bei höherer $E_\text{PKA}$ sollte
+  gemäß De Backer ein Übergang zu einer gedämpften Verteilung sichtbar
+  werden.
+\item \textbf{3D-Erweiterung:} Das Potenzgesetz in 3D mit realen Potenzialen
+  (ZBL + Einbettungsenergie-Modell) zu reproduzieren, wäre der nächste Schritt
+  zum direkten Vergleich mit Sand et al.
+\item \textbf{GPU-Ensemble:} Mit dem A100 (731-fache Beschleunigung) könnten
+  $10\,000$ statt $1\,000$ Kaskaden in derselben Rechenzeit simuliert werden --
+  der statistische Fehler des Exponenten würde von $\pm 0{,}03$ auf
+  $\pm 0{,}01$ sinken.
+\end{itemize}
+
+% =====================================================================
+\FloatBarrier
+\section{Machbarkeitsstudie: Skalierung des Ensembles}
+\label{sec:ensemble-scaling}
+
+Könnte man den Exponenten $S$ durch einen \emph{deutlich größeren} Lauf
+schärfer bestimmen -- mehr Kaskaden (engeres Konfidenzintervall) und größere
+Gitter (mehr Dekaden im Potenzbereich)? Diese Frage wurde unter einer harten
+Randbedingung untersucht: $\approx 2000$ verbleibende CPU-Stunden auf Noctua\,2,
+der Lauf musste also im ersten Versuch gelingen. Daraus folgte das Prinzip
+\textbf{„erst messen, dann rechnen"} -- jeder Budgetkennwert wurde an einer
+kleinen Probe bestimmt, statt ihn zu schätzen. Abbildung~\ref{fig:ensemble}
+fasst die beiden entscheidenden Messungen zusammen.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{ensemble_scaling.png}
+  \caption{Voruntersuchung zum skalierten Ensemble-Lauf.
+    \textbf{Links:} MPI-Strong-Scaling eines einzelnen $1000\times1000$-Laufs
+    (1\,Mio Atome). Die Skalierung ist bei 64 und 128 Kernen \emph{superlinear}
+    ($87\times$ bzw.\ $171\times$) -- derselbe Cache-Effekt wie im Hauptteil
+    (Abschnitt~\ref{sec:cache}). Daraus folgt die Produktionswahl 128 Kerne/Lauf:
+    ein Lauf belegt einen Knoten allein und behält die superlineare Effizienz.
+    \textbf{Rechts:} Energie-Kalibrierung. Mit steigender PKA-Energie verschmilzt
+    der Schaden zu \emph{einem} perkolierten Cluster (größter Cluster
+    $\approx$ alle verschobenen Atome); ab $\approx 15\,000$ überrennt er das
+    Gitter. Ein einzelner Großlauf liefert also keine breite Größenverteilung.
+    Skript: \texttt{scripts/python/plot\_ensemble\_scaling.py}.}
+  \label{fig:ensemble}
+\end{figure}
+
+\paragraph{Budget-Probe (seriell).}
+Eine voll gepackte Welle von 128 gleichzeitigen Läufen (realistisch, da sie
+sich die Knotenbandbreite teilen) zeigt \emph{überlineare} Kosten mit der
+Gittergröße ($\approx N_x^{3{,}5}$ statt $N_x^2$) -- wieder die geteilte
+Speicherbandbreite als Engpass:
+\begin{center}\small
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Gitter & Atome & Wandzeit 128er-Welle & Bytes/Lauf \\
+\midrule
+$250\times250$ & 62\,500  & 39{,}97\,s  & 1{,}63\,MB \\
+$400\times400$ & 160\,000 & 209{,}07\,s & 4{,}23\,MB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{MPI-Skalierung bei 1\,Mio Atomen.}
+Der linke Plot in Abb.~\ref{fig:ensemble} basiert auf folgenden Wandzeiten;
+die Effizienz übersteigt bei 64/128 Kernen 100\,\% (cache-resident):
+\begin{center}\small
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Kerne & Wandzeit & Speedup & Effizienz \\
+\midrule
+1   & 533{,}56\,s & 1{,}0   & 100\,\% \\
+16  & 59{,}43\,s  & 9{,}0   & 56\,\%  \\
+32  & 19{,}70\,s  & 27{,}1  & 85\,\%  \\
+64  & 6{,}11\,s   & 87{,}3  & 136\,\% \\
+128 & 3{,}12\,s   & 171{,}0 & 134\,\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Für den Großlauf wurde die MPI-Version um eine \texttt{MPI\_Gatherv}-Ausgabe
+des per-Atom-Endzustands erweitert (bislang gab sie nur aggregierte Größen aus).
+Die Validierung bestätigte die Korrektheit: MPI mit 1 vs.\ 4 Rängen ist
+\textbf{bit-identisch}; seriell vs.\ MPI weicht erwartungsgemäß pointweise ab
+(chaotische Trajektorien, unterschiedliche Gleitkomma-Summationsreihenfolge),
+aber die \emph{Verteilung} -- das einzig Relevante für das Power Law -- ist
+identisch.
+
+\paragraph{Entscheidung: Lauf nicht durchgeführt.}
+Die Infrastruktur war lauffähig und validiert, und das Budget hätte rund 1500
+Läufe getragen. Entscheidend dagegen sprach der \emph{wissenschaftliche} Befund
+der rechten Bildhälfte: Ein größeres Gitter mit höherer Energie erzeugt nicht
+mehr Dekaden, sondern bei hoher Energie einen einzelnen perkolierten Blob. Der
+erwartete Erkenntnisgewinn gegenüber dem bestehenden Ergebnis
+($S = 1{,}38$/$1{,}41$) rechtfertigte Aufwand und Risiko im gegebenen Rahmen
+nicht. Das ist dieselbe Methodenlehre wie bei der GPU-Analyse:
+\textbf{erst die richtige Messgröße bestimmen, dann Rechenzeit investieren.}
+
+\clearpage
+% =====================================================================
+\FloatBarrier
+\section{Fazit Teil II}
+\label{sec:fazit-powerlaw}
+
+\paragraph{Skalenfreies Verhalten emergiert aus dem Mechanismus.}
+Das 2D-Dreiecks\-gitter-Modell -- ohne Quantenmechanik, ohne reale
+Wolfram-Potenziale -- reproduziert das skalenfreie Potenzgesetz der
+Defektclustergrößen mit einem Exponenten $S \approx 1{,}4$.
+Das Ergebnis ist:
+\begin{itemize}[itemsep=2pt]
+\item \textbf{Robust gegen Healing:} Nur $2\,\%$ Verschiebung.
+\item \textbf{Konsistent mit Sand et al.:} Gleiche qualitative Struktur
+  (skalenfreies Potenzgesetz), niedrigerer Exponent aus 2D/Modell-Gründen.
+\item \textbf{Jenseits des De Backer-Regimes:} Im nicht-fragmentierten
+  Bereich, d.h.\ das generalisierte Skalierungsgesetz~\eqref{eq:debacker}
+  wird noch nicht aktiv.
+\end{itemize}
+
+\paragraph{Methodische Lehre.}
+Die $x_\text{min}$-Falle beim KS-basierten Fit -- Artefakt $S \approx 29{,}6$ --
+zeigt, dass Potenzgesetz-Fits ohne Daten-Rumpf-Einschränkung täuschen.
+MLE nach Clauset et al.\ mit expliziter $x_\text{min}$-Validierung ist die
+einzig zuverlässige Methode.
+
+% =====================================================================
+\appendix
+\FloatBarrier
+\section{Anhang: Skripte und Reproduzierbarkeit}
+\label{app:scripts}
+
+\paragraph{Python-Plot-Skripte (\texttt{scripts/python/}).}
+\begin{center}\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Skript & Erzeugt & Abbildung \\
+\midrule
+\texttt{analyze\_scaling.py}    & \texttt{strong\_scaling.png}\footnotemark & \ref{fig:strong}, \ref{fig:phases}, \ref{fig:compute-comm} \\
+\texttt{analyze\_weak.py}       & \texttt{weak\_scaling.png}\footnotemark[\value{footnote}]   & \ref{fig:weak} \\
+\texttt{analyze\_compiler\_opt.py} & \texttt{compiler\_opt.png}\footnotemark[\value{footnote}] & \ref{fig:compiler} \\
+\texttt{analyze\_opt\_compare.py}  & \texttt{opt\_compare.png}\footnotemark[\value{footnote}]  & \ref{fig:opt} \\
+\texttt{analyze\_ensemble.py}   & CCDF-Plots                  & \ref{fig:pooling}, \ref{fig:pdf-ccdf} \\
+\texttt{plot\_damage\_map.py}   & \texttt{vid\_S2\_damage.png} & \ref{fig:damage} \\
+\texttt{overlay\_ccdf.py}       & Overlay-Plot                & \ref{fig:powerlaw-overlay} \\
+\texttt{plot\_tts.py}           & \texttt{tts.png}            & \ref{fig:tts} \\
+\texttt{plot\_ncu.py}           & \texttt{ncu\_profiling.png} & \ref{fig:ncu} \\
+\texttt{plot\_launch\_bounds.py} & \texttt{launch\_bounds\_plot.png} & \ref{fig:launchbounds} \\
+\texttt{plot\_gpu\_saturation.py} & \texttt{gpu\_saturation.png} & \ref{fig:saturation} \\
+\texttt{plot\_ensemble\_scaling.py} & \texttt{ensemble\_scaling.png} & \ref{fig:ensemble} \\
+\texttt{plot\_cache\_argument.py} & \texttt{cache\_argument.png} & \ref{fig:cache} \\
+\bottomrule
+\end{tabular}
+\end{center}
+\footnotetext{Im Bericht unter einem umbenannten Dateinamen mit
+  \texttt{H}/\texttt{E}/\texttt{M}-Präfix eingebunden
+  (z.\,B.\ \texttt{H1\_strong\_scaling.png} statt \texttt{strong\_scaling.png}).
+  Diese Version wurde für die Abbildungen im Bericht separat erzeugt und
+  entspricht nicht notwendig 1:1 dem aktuellen Stand des hier gelisteten Skripts.}
+
+\paragraph{Aufruf-Beispiele.}
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize, breaklines=true]
+# Strong Scaling (1+2 Knoten):
+python3 analyze_scaling.py results/mpi_strong_scaling_1node.csv \
+                            results/mpi_strong_scaling_2node.csv
+
+# Cache-Argument:
+python3 plot_cache_argument.py results/mpi_strong_scaling_1node.csv \
+                                results/mpi_strong_scaling_2node.csv
+
+# TTS-Plot (Daten sind hardcoded aus Benchmark-Outputs):
+python3 plot_tts.py
+
+# ncu-Profiling (Daten hardcoded aus ncu_report.csv + Benchmark-Outputs):
+python3 plot_ncu.py
+
+# Schadenskarte (rekonstruiert Bindungen geometrisch aus den Endzustaenden):
+python3 plot_damage_map.py results/ensemble_no_heal_run_0999_state_final.csv \
+                            results/ensemble_run_0999_state_final.csv
+\end{lstlisting}
+
+\paragraph{Hardware.}
+Alle CPU-Messungen auf \emph{Noctua 2} (PC2 Paderborn): EPYC 7763,
+128 Kerne/Knoten, 256\,GB RAM, HDR InfiniBand. GPU-Messungen auf demselben
+Cluster: NVIDIA A100-SXM4-40GB, CUDA 13.2. T4-Messungen auf einem
+separaten System (sm\_75, CUDA 12.x).
+
+\begin{thebibliography}{9}
+\bibitem{sand2013}
+A.~E.~Sand, S.~L.~Dudarev, K.~Nordlund:
+\textit{High-energy collision cascades in tungsten: Dislocation loops
+structure and clustering scaling laws}.
+EPL (Europhysics Letters) 103 (2013) 46003.
+
+\bibitem{debacker2016}
+A.~De Backer, A.~Sand, K.~Nordlund, L.~Luneville, D.~Simeone, S.~Dudarev:
+\textit{Subcascade formation and defect cluster size scaling in
+high-energy collision events in metals}.
+EPL 115 (2016) 26001.
+
+\bibitem{clauset2009}
+A.~Clauset, C.~R.~Shalizi, M.~E.~J.~Newman:
+\textit{Power-law distributions in empirical data}.
+SIAM Review 51(4) (2009), 661--703.
+\end{thebibliography}
+
+\end{document}

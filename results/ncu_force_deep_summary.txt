@@ -1,0 +1,30 @@
+==PROF== Connected to process 1327807 (/scratch/hpc-prf-simvine/<user>/project/cuda/cascade_cuda_bench_fp64)
+==PROF== Profiling "k_force": 0%....50%....100% - 11 passes
+==PROF== Profiling "k_force": 0%....50%....100% - 11 passes
+# ===== cascade_cuda_bench | double (fp64) | N=1999396 (1414x1414) | T=256 | Schritte=600 | rep=1 =====
+# [Reduktion] GPU=5.000000e+03 Host=5.000000e+03 rel=0.00e+00 -> OK
+#   rep 0: 4.907 s  (drift 0.0868 %)
+
+# ================== ERGEBNIS-BLOCK (double (fp64), N=1999396) ==================
+# Reduktions-Drift (letzte Wdh.) : 0.0868 %
+# Zeitschleife (Median v. 1)    : 4.9067 s   [min 4.9067 / max 4.9067]
+# pro Schritt                    : 8177.84 us
+# Durchsatz                      : 244.5 Matom/s
+# --- Kernel-Breakdown (isoliert, us/Aufruf) ---
+#   clear_cells     39.56 us  
+#   build_cells    130.64 us  
+#   force          261.36 us  
+#   energy         239.30 us  (nur beim Logging)
+#   kick_drift     167.79 us  
+#   kick            86.52 us  
+#   -> pro Schritt (Summe ohne energy): 685.87 us ; force-Anteil = 38.1 %
+# --- Transfer ---
+# H2D (184 MB) : 26.78 ms (7 GB/s) ; D2H (16 MB) : 1.44 ms (11 GB/s)
+# Bandbreite force (MODELL)      : 581.4 GB/s (37.4 % Peak) -- ncu ist autoritativ
+# --- CPU vs GPU (fp64, gleiche Konfig) ---
+# vs 1 EPYC-Kern (1152,9 s) : 235.0x ; vs 64-Kern-Knoten (22.5 s) : 4.59x
+# CSV  prec,N,T,steps,per_step_us,matom_s,force_us,step_us
+# CSV  double (fp64),1999396,256,600,8177.840,244.49,261.361,685.870
+# =====================================================================
+==PROF== Disconnected from process 1327807
+==PROF== Report: /scratch/hpc-prf-simvine/<user>/project/cuda/ncu_force_deep_33375549.ncu-rep

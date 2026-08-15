@@ -1,0 +1,37 @@
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Mon_Mar_02_09:52:23_PM_PST_2026
+Cuda compilation tools, release 13.2, V13.2.51
+Build cuda_13.2.r13.2/compiler.37434383_0
+name, memory.total [MiB]
+NVIDIA A100-SXM4-40GB, 40960 MiB
+=============== TIMING-LAUF ===============
+# CUDA Schritt 4+5 | N=1999396 | PKA_E=5000 | dt=0.0002 | Schritte=3000 | Zellen=2405340
+# [Schritt 4] Reduktion: GPU=5.000000000e+03  Host=5.000000000e+03  rel.Diff=0.00e+00  -> OK
+#   Schritt    500  E_total=5003.5003  drift=0.0700%
+#   Schritt   1000  E_total=5006.4132  drift=0.1283%
+#   Schritt   1500  E_total=5008.3285  drift=0.1666%
+#   Schritt   2000  E_total=5009.4313  drift=0.1886%
+#   Schritt   2500  E_total=5010.1543  drift=0.2031%
+#   Schritt   3000  E_total=5010.8196  drift=0.2164%
+
+# =================== ERGEBNIS-BLOCK (fuer Folie 9b) ===================
+# Problemgroesse        : N = 1999396 Atome (1414x1414), 3000 Schritte
+# Energie-Drift (Ende)  : 0.2164 %
+# --- Laufzeit (GPU, ohne Transfer) ---
+# Zeitschleife gesamt   : 1.594 s
+# pro Schritt           : 531.2 us
+# Durchsatz             : 3763.7 Matom/s
+# --- Force-Kernel (isoliert) ---
+# pro Aufruf            : 259.1 us
+# Bandbreite (MODELL)   : 586.4 GB/s  (= 37.7 % der A100-Peak 1555 GB/s)
+#   -> AUTORITATIV ist die von ncu gemessene DRAM-Throughput (SpeedOfLight).
+# --- Transfer ---
+# H2D (Setup, 184 MB)   : 13.56 ms  (14 GB/s)
+# D2H (e_atom, 16 MB)  : 1.26 ms  (13 GB/s)
+# --- CPU vs. GPU (Whole-Program, gleiche Konfig) ---
+# CPU 1 Kern   T(1)      : 1152.9 s   -> Speedup GPU = 723.4x
+# CPU 64 Kerne T(1)/51,2 : 22.5 s    -> Speedup GPU = 14.13x
+# =====================================================================
+=============== NCU-PROFILING ===============
+==ERROR== Unknown macro '%j' in /scratch/hpc-prf-simvine/<user>/project/cuda/ncu_force_%j.ncu-rep.

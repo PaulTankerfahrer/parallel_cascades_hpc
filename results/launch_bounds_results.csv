@@ -1,0 +1,5 @@
+variant,registers,occupancy_pct,occupancy_source,throughput_matom_s
+base,62,45.1,ncu,3435
+lb4,62,45.1,ncu,3435
+lb6,40,66.4,ncu,3406
+lb8,32,100,theor,2850

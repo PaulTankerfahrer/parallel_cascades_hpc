@@ -1,0 +1,104 @@
+==148975== Memcheck, a memory error detector
+==148975== Copyright (C) 2002-2024, and GNU GPL'd, by Julian Seward et al.
+==148975== Using Valgrind-3.25.1 and LibVEX; rerun with -h for copyright info
+==148975== Command: ./cascade_serial_gcc params_valgrind.ini
+==148975== Parent PID: 148961
+==148975== 
+==148975== 
+==148975== HEAP SUMMARY:
+==148975==     in use at exit: 956,800 bytes in 17 blocks
+==148975==   total heap usage: 26 allocs, 9 frees, 979,168 bytes allocated
+==148975== 
+==148975== 25,600 bytes in 1 blocks are still reachable in loss record 1 of 17
+==148975==    at 0x485F023: calloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D9B: build_lattice (cascade_serial.c:418)
+==148975==    by 0x4002D9B: main (cascade_serial.c:904)
+==148975== 
+==148975== 25,600 bytes in 1 blocks are still reachable in loss record 2 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4003125: main (cascade_serial.c:906)
+==148975== 
+==148975== 25,600 bytes in 1 blocks are still reachable in loss record 3 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x400325A: cell_setup (cascade_serial.c:503)
+==148975==    by 0x400325A: main (cascade_serial.c:907)
+==148975== 
+==148975== 35,200 bytes in 1 blocks are still reachable in loss record 4 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4003247: cell_setup (cascade_serial.c:502)
+==148975==    by 0x4003247: main (cascade_serial.c:907)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 5 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002CBF: build_lattice (cascade_serial.c:412)
+==148975==    by 0x4002CBF: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 6 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002CD5: build_lattice (cascade_serial.c:412)
+==148975==    by 0x4002CD5: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 7 of 17
+==148975==    at 0x485F023: calloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002CEC: build_lattice (cascade_serial.c:413)
+==148975==    by 0x4002CEC: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 8 of 17
+==148975==    at 0x485F023: calloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D00: build_lattice (cascade_serial.c:413)
+==148975==    by 0x4002D00: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 9 of 17
+==148975==    at 0x485F023: calloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D14: build_lattice (cascade_serial.c:414)
+==148975==    by 0x4002D14: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 10 of 17
+==148975==    at 0x485F023: calloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D2F: build_lattice (cascade_serial.c:414)
+==148975==    by 0x4002D2F: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 11 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D41: build_lattice (cascade_serial.c:415)
+==148975==    by 0x4002D41: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 12 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D53: build_lattice (cascade_serial.c:415)
+==148975==    by 0x4002D53: main (cascade_serial.c:904)
+==148975== 
+==148975== 51,200 bytes in 1 blocks are still reachable in loss record 13 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D65: build_lattice (cascade_serial.c:416)
+==148975==    by 0x4002D65: main (cascade_serial.c:904)
+==148975== 
+==148975== 76,800 bytes in 1 blocks are still reachable in loss record 14 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002EE2: build_lattice (cascade_serial.c:434)
+==148975==    by 0x4002EE2: main (cascade_serial.c:904)
+==148975== 
+==148975== 76,800 bytes in 1 blocks are still reachable in loss record 15 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002EF8: build_lattice (cascade_serial.c:435)
+==148975==    by 0x4002EF8: main (cascade_serial.c:904)
+==148975== 
+==148975== 76,800 bytes in 1 blocks are still reachable in loss record 16 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002F0E: build_lattice (cascade_serial.c:436)
+==148975==    by 0x4002F0E: main (cascade_serial.c:904)
+==148975== 
+==148975== 153,600 bytes in 1 blocks are still reachable in loss record 17 of 17
+==148975==    at 0x48578D8: malloc (in /usr/lib/valgrind/vgpreload_memcheck-amd64-linux.so)
+==148975==    by 0x4002D83: build_lattice (cascade_serial.c:417)
+==148975==    by 0x4002D83: main (cascade_serial.c:904)
+==148975== 
+==148975== LEAK SUMMARY:
+==148975==    definitely lost: 0 bytes in 0 blocks
+==148975==    indirectly lost: 0 bytes in 0 blocks
+==148975==      possibly lost: 0 bytes in 0 blocks
+==148975==    still reachable: 956,800 bytes in 17 blocks
+==148975==         suppressed: 0 bytes in 0 blocks
+==148975== 
+==148975== For lists of detected and suppressed errors, rerun with: -s
+==148975== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

@@ -1,0 +1,72 @@
+Baue für sm_75 ...
+(kompiliert, keine Ausgabe)
+--- Lauf ---
+# CUDA Schritt 4+5 | N=1999396 | PKA_E=5000 | dt=0.0002 | Schritte=3000 | Zellen=2405340
+# [Schritt 4] Reduktion: GPU=5.000000000e+03  Host=5.000000000e+03  rel.Diff=0.00e+00  -> OK
+#   Schritt    500  E_total=5003.5003  drift=0.0700%
+#   Schritt   1000  E_total=5006.4132  drift=0.1283%
+#   Schritt   1500  E_total=5008.3285  drift=0.1666%
+#   Schritt   2000  E_total=5009.4313  drift=0.1886%
+#   Schritt   2500  E_total=5010.1543  drift=0.2031%
+#   Schritt   3000  E_total=5010.8196  drift=0.2164%
+
+# =================== ERGEBNIS-BLOCK (fuer Folie 9b) ===================
+# Problemgroesse        : N = 1999396 Atome (1414x1414), 3000 Schritte
+# Energie-Drift (Ende)  : 0.2164 %
+# --- Laufzeit (GPU, ohne Transfer) ---
+# Zeitschleife gesamt   : 19.090 s
+# pro Schritt           : 6363.4 us
+# Durchsatz             : 314.2 Matom/s
+# --- Force-Kernel (isoliert) ---
+# pro Aufruf            : 4646.8 us
+# Bandbreite (MODELL)   : 32.7 GB/s  (= 2.1 % der A100-Peak 1555 GB/s)
+#   -> AUTORITATIV ist die von ncu gemessene DRAM-Throughput (SpeedOfLight).
+# --- Transfer ---
+# H2D (Setup, 184 MB)   : 43.30 ms  (4 GB/s)
+# D2H (e_atom, 16 MB)  : 3.51 ms  (5 GB/s)
+# --- CPU vs. GPU (Whole-Program, gleiche Konfig) ---
+# CPU 1 Kern   T(1)      : 1152.9 s   -> Speedup GPU = 60.4x
+# CPU 64 Kerne T(1)/51,2 : 22.5 s    -> Speedup GPU = 1.18x
+# =====================================================================
+NVIDIA (R) Nsight Compute Command Line Profiler
+Copyright (c) 2018-2025 NVIDIA Corporation
+Version 2025.1.1.0 (build 35528883) (public-release)
+    Mem Busy                    %         7.04
+    Max Bandwidth               %         7.90
+    L1/TEX Hit Rate             %        42.88
+    L2 Hit Rate                 %        80.96
+    Mem Pipes Busy              %        23.73
+    ----------------- ----------- ------------
+
+  k_force(const double *, const double *, double *, double *, const int *, int *, const int *, const int *, const int *, double, double, double, int, int, double, double, double, double, double, double, double *, int) (7811, 1, 1)x(256, 1, 1), Context 1, Stream 7, Device 0, CC 7.5
+    Section: GPU Speed Of Light Throughput
+    ----------------------- ----------- ------------
+    Metric Name             Metric Unit Metric Value
+    ----------------------- ----------- ------------
+    DRAM Frequency                  Ghz         5.00
+    SM Frequency                    Mhz       585.00
+    Elapsed Cycles                cycle    7,405,272
+    Memory Throughput                 %         7.90
+    DRAM Throughput                   %         5.60
+    Duration                         ms        12.66
+    L1/TEX Cache Throughput           %         7.93
+    L2 Cache Throughput               %         7.08
+    SM Active Cycles              cycle 7,383,823.55
+    Compute (SM) Throughput           %        87.46
+    ----------------------- ----------- ------------
+
+    INF   This workload is utilizing greater than 80.0% of the available compute or memory performance of the device.   
+          To further improve performance, work will likely need to be shifted from the most utilized to another unit.   
+          Start by analyzing workloads in the Compute Workload Analysis section.                                        
+
+    Section: Memory Workload Analysis
+    ----------------- ----------- ------------
+    Metric Name       Metric Unit Metric Value
+    ----------------- ----------- ------------
+    Memory Throughput     Gbyte/s        17.92
+    Mem Busy                    %         7.08
+    Max Bandwidth               %         7.90
+    L1/TEX Hit Rate             %        42.85
+    L2 Hit Rate                 %        80.42
+    Mem Pipes Busy              %        23.73
+    ----------------- ----------- ------------
