@@ -56,6 +56,8 @@ def jobs():
 SIZE = (800, 800)
 RADIUS = 0.55
 FPS = 20
+TOTAL_SECONDS = 15.0     # Gesamtlaenge je Video; das Endbild wird so lange
+                         # eingefroren, dass Animation + Freeze == TOTAL_SECONDS
 
 
 def render_job(j, xyz_dir, out_dir, renderer):
@@ -85,12 +87,14 @@ def render_job(j, xyz_dir, out_dir, renderer):
     pl.remove_from_scene()
 
     out = os.path.join(out_dir, f"cascade_{j['name']}.mp4")
-    # H.264, yuv420p (breit kompatibel), letztes Bild 1,5 s einfrieren
+    # H.264, yuv420p (breit kompatibel). Endbild so lange einfrieren, dass
+    # Animation + Freeze == TOTAL_SECONDS (Animation selbst bleibt unveraendert).
+    freeze = max(0.0, TOTAL_SECONDS - nframes / FPS)
     subprocess.run([
         "ffmpeg", "-y", "-loglevel", "error",
         "-framerate", str(FPS), "-i", os.path.join(tmp, "f_%04d.png"),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18",
-        "-vf", f"tpad=stop_mode=clone:stop_duration=1.5",
+        "-vf", f"tpad=stop_mode=clone:stop_duration={freeze:.3f}",
         out], check=True)
     shutil.rmtree(tmp)
     print(f"  -> {out}  ({nframes} Frames)")
