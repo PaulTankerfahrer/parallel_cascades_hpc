@@ -1,0 +1,38 @@
+# Dokumente-CI: Bericht und Präsentation mit TeXLive bauen, PDFs als Artefakt.
+#
+# Faengt LaTeX-Fehler (fehlende Pakete, kaputte Referenzen, Escape-Artefakte)
+# und stellt bei jedem Push frische PDFs zum Download bereit.
+#
+# Voraussetzungen:
+#   - Forgejo-Actions-Runner mit Label 'ubuntu-latest', der 'container:' erlaubt.
+#   - Artefakt-Speicher auf der Forgejo-Instanz aktiviert (fuer upload-artifact).
+name: Dokumente
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  latex:
+    runs-on: ubuntu-latest
+    container:
+      image: texlive/texlive:latest   # volles Schema: metropolis, babel-german, siunitx ...
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bericht bauen (report.pdf)
+        run: |
+          pdflatex -interaction=nonstopmode -halt-on-error report.tex
+          pdflatex -interaction=nonstopmode -halt-on-error report.tex
+      - name: Präsentation bauen (physik_praesentation.pdf)
+        working-directory: presentation
+        run: |
+          pdflatex -interaction=nonstopmode -halt-on-error physik_praesentation.tex
+          pdflatex -interaction=nonstopmode -halt-on-error physik_praesentation.tex
+      - name: PDFs als Artefakt hochladen
+        uses: actions/upload-artifact@v3
+        with:
+          name: pdfs
+          path: |
+            report.pdf
+            presentation/physik_praesentation.pdf
+          if-no-files-found: error
