@@ -1,10 +1,11 @@
 # Simulation-CI: Build + Physik-Smoke-Test und Valgrind-Speichercheck.
 #
-# Voraussetzungen:
-#   - Ein registrierter Forgejo-Actions-Runner mit Label 'ubuntu-latest'
-#     auf Debian/Ubuntu-Basis (die Steps installieren Pakete via apt als root).
-#   - Nur billige Checks -- schwere Rechnung (Scaling, GPU, 1000-Ensembles)
-#     gehoert auf den Cluster, nicht in CI.
+# Laeuft in Containern (podman), damit die Steps als root Pakete via apt
+# installieren koennen -- der Host-Executor des Runners ist non-root.
+# Basis 'buildpack-deps:bookworm' bringt git (fuer den Checkout) und gcc mit.
+#
+# Nur billige Checks -- schwere Rechnung (Scaling, GPU, 1000-Ensembles)
+# gehoert auf den Cluster, nicht in CI.
 name: Simulation CI
 
 on:
@@ -14,9 +15,13 @@ on:
 jobs:
   build-and-physics:
     runs-on: ubuntu-latest
+    container:
+      image: buildpack-deps:bookworm
     steps:
       - uses: actions/checkout@v4
       - name: Abhängigkeiten (gcc, OpenMPI)
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
@@ -26,9 +31,13 @@ jobs:
 
   valgrind:
     runs-on: ubuntu-latest
+    container:
+      image: buildpack-deps:bookworm
     steps:
       - uses: actions/checkout@v4
       - name: Abhängigkeiten (gcc, Valgrind)
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           apt-get update
           apt-get install -y --no-install-recommends build-essential valgrind
