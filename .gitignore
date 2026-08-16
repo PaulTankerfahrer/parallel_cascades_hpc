@@ -1,4 +1,4 @@
-# LaTeX-Build-Artefakte
+# LaTeX-Build-Artefakte (NICHT *.pdf -- die Berichte/Folien sind getrackt)
 *.aux
 *.log
 *.out
@@ -8,8 +8,37 @@
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.synctex(busy)
 *.bbl
 *.blg
+*.bcf
+*.run.xml
+# Beamer
+*.nav
+*.snm
+*.vrb
+# Index / Glossar
+*.idx
+*.ind
+*.ilg
+*.glo
+*.gls
+*.glg
+*.acn
+*.acr
+*.alg
+*.ist
+# Sonstiges (TikZ-externalize, minted, xelatex, dvi, ...)
+*.dvi
+*.xdv
+*.brf
+*.auxlock
+*.dpth
+*.md5
+*.figlist
+*.makefile
+*.pyg
+_minted-*/
 
 # Slurm-Ausgaben (im Arbeitsverzeichnis)
 slurm-*.out
