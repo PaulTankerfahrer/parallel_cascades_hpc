@@ -4,7 +4,25 @@ Ein konfigurierbarer, paralleler 2D-Masse-Feder-Simulator für Kollisions-
 kaskaden (Strahlenschaden). Drei Implementierungen teilen sich dieselbe
 Konfigurationsdatei und dasselbe Modell: **seriell**, **MPI** und **CUDA**.
 
-[![Simulation CI](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions)
+[![Simulation CI](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=simulation.yml)
+[![Valgrind](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/valgrind.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=valgrind.yml)
+
+---
+
+## Inhalt
+
+- [Projektstruktur](#projektstruktur)
+- [Allgemein](#allgemein)
+- [Konfiguration: `src/params.ini`](#konfiguration-srcparamsini)
+- [Build-Anleitungen](#build-anleitungen)
+- [SLURM-Jobs (Noctua 2)](#slurm-jobs-noctua-2)
+- [Python-Skripte ausführen](#python-skripte-ausführen)
+- [Skript-Referenz](#skript-referenz)
+- [Wichtige Messergebnisse](#wichtige-messergebnisse)
+- [Bericht](#bericht)
+- [Continuous Integration](#continuous-integration)
+- [Über das Projekt](#über-das-projekt)
+- [Lizenz](#lizenz)
 
 ---
 
@@ -513,21 +531,25 @@ bleibt dem Cluster vorbehalten, nicht der CI.
 
 ### Simulation CI (`simulation.yml`) — läuft bei jedem Push
 
-- **Physik-Smoke-Test** (`scripts/ci/build_and_test.sh`): baut serielle und
-  MPI-Version, dann auf einem kleinen Gitter (`src/params_valgrind.ini`):
-  1. **Energieerhaltung** — der relative Energiedrift muss `|Δ| < 0,5 %`
-     bleiben (real ~0,04 %). Fängt physikalisch kaputte Änderungen an der
-     Integration/Kraftberechnung, bevor sie Ergebnisse verfälschen.
-  2. **Determinismus** — zweimal derselbe Seed muss dieselbe Zahl gerissener
-     Bindungen (`broken_bonds`) liefern.
-  3. **Sanity** — es ist überhaupt eine Kaskade passiert (`broken_bonds > 0`).
-  4. **MPI-Smoke** — 2 Ränge laufen ohne Absturz und geben `RESULT` aus.
-- **Valgrind-Speichercheck** (`scripts/ci/valgrind_check.sh`): baut mit `-g`
-  und lässt die serielle Version streng unter Valgrind laufen
-  (`--error-exitcode=1`, `--leak-check=full`, definitive Leaks = rot). Der
-  vollständige Report wird als Artefakt **`valgrind-report`** hochgeladen (auch
-  bei gefundenen Fehlern, `if: always()`) und lässt sich vom jeweiligen
-  CI-Lauf herunterladen.
+**Physik-Smoke-Test** (`scripts/ci/build_and_test.sh`): baut serielle und
+MPI-Version, dann auf einem kleinen Gitter (`src/params_valgrind.ini`):
+
+1. **Energieerhaltung** — der relative Energiedrift muss `|Δ| < 0,5 %`
+   bleiben (real ~0,04 %). Fängt physikalisch kaputte Änderungen an der
+   Integration/Kraftberechnung, bevor sie Ergebnisse verfälschen.
+2. **Determinismus** — zweimal derselbe Seed muss dieselbe Zahl gerissener
+   Bindungen (`broken_bonds`) liefern.
+3. **Sanity** — es ist überhaupt eine Kaskade passiert (`broken_bonds > 0`).
+4. **MPI-Smoke** — 2 Ränge laufen ohne Absturz und geben `RESULT` aus.
+
+### Valgrind (`valgrind.yml`) — läuft bei jedem Push
+
+**Valgrind-Speichercheck** (`scripts/ci/valgrind_check.sh`): baut mit `-g`
+und lässt die serielle Version streng unter Valgrind laufen
+(`--error-exitcode=1`, `--leak-check=full`, definitive Leaks = rot). Der
+vollständige Report wird als Artefakt **`valgrind-report`** hochgeladen — auch
+bei gefundenen Fehlern (`if: always()`). Direkt zu den Läufen inkl. Download:
+[**Valgrind-Läufe → Artefakt `valgrind-report`**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=valgrind.yml).
 
 Beide Skripte sind auch **lokal** ausführbar:
 `bash scripts/ci/build_and_test.sh` bzw. `bash scripts/ci/valgrind_check.sh`.
@@ -539,7 +561,9 @@ beim Start scheitern; auf dem CI-Runner mit stabilem glibc läuft es.)
 Baut `report.pdf` und die Präsentation mit TeXLive und lädt beide PDFs als
 Artefakt **`pdfs`** hoch. Läuft **nicht** bei jedem Push, sondern nur, wenn die
 Commit-Message das Schlüsselwort **`document`** enthält — oder manuell über
-„Run workflow" (`workflow_dispatch`).
+„Run workflow" (`workflow_dispatch`). Fertige PDFs zum Download:
+[**Dokumente-Läufe → Artefakt `pdfs`**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=documents.yml)
+(jeweils der neueste erfolgreiche Lauf).
 
 > Beide Jobs laufen im Container `node:20-bookworm`: Der podman-Runner führt
 > JS-Actions (`checkout`, `upload-artifact`) mit dem node *im Container* aus,

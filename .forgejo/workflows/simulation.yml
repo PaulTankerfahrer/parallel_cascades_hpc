@@ -1,15 +1,15 @@
-# Simulation-CI: Build + Physik-Smoke-Test und Valgrind-Speichercheck.
+# Simulation-CI: Build + Physik-Smoke-Test.
 #
 # Laeuft in Containern (podman), damit die Steps als root Pakete via apt
 # installieren koennen -- der Host-Executor des Runners ist non-root.
 #
 # Basis 'node:20-bookworm': bringt node (Forgejo fuehrt JS-Actions wie
 # checkout mit dem Container-node aus), git (Checkout) und gcc/make mit
-# (basiert auf buildpack-deps:bookworm). Wir installieren nur OpenMPI bzw.
-# Valgrind nach.
+# (basiert auf buildpack-deps:bookworm). Wir installieren nur OpenMPI nach.
 #
 # Nur billige Checks -- schwere Rechnung (Scaling, GPU, 1000-Ensembles)
-# gehoert auf den Cluster, nicht in CI.
+# gehoert auf den Cluster, nicht in CI. Der Valgrind-Check ist bewusst ein
+# eigener Workflow (valgrind.yml), damit er ein eigenes Status-Badge bekommt.
 name: Simulation CI
 
 on:
@@ -32,25 +32,3 @@ jobs:
             openmpi-bin libopenmpi-dev
       - name: Build + Physik-Smoke-Test
         run: bash scripts/ci/build_and_test.sh
-
-  valgrind:
-    runs-on: ubuntu-latest
-    container:
-      image: node:20-bookworm
-    steps:
-      - uses: actions/checkout@v4
-      - name: Abhängigkeiten (Valgrind)
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends valgrind
-      - name: Valgrind-Speichercheck (seriell)
-        run: bash scripts/ci/valgrind_check.sh
-      - name: Valgrind-Report als Artefakt hochladen
-        if: always()   # auch bei gefundenen Fehlern hochladen, zum Nachschauen
-        uses: actions/upload-artifact@v3
-        with:
-          name: valgrind-report
-          path: valgrind-report.txt
-          if-no-files-found: error
