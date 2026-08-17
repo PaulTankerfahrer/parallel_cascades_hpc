@@ -4,8 +4,13 @@ Ein konfigurierbarer, paralleler 2D-Masse-Feder-Simulator für Kollisions-
 kaskaden (Strahlenschaden). Drei Implementierungen teilen sich dieselbe
 Konfigurationsdatei und dasselbe Modell: **seriell**, **MPI** und **CUDA**.
 
+**CI (Forgejo, primär):**
 [![Simulation CI](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=simulation.yml)
 [![Valgrind](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/valgrind.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=valgrind.yml)
+
+**CI ([GitHub](https://github.com/PaulTankerfahrer/parallel_cascades_hpc)-Mirror):**
+[![Simulation CI](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml/badge.svg)](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml)
+[![Valgrind](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/valgrind.yml/badge.svg)](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/valgrind.yml)
 
 ---
 
@@ -525,9 +530,15 @@ Ein vollwertiges Negativergebnis, siehe Abschnitt 11.4 im Bericht.*
 
 ## Continuous Integration
 
-Bei jedem Push laufen über **Forgejo Actions** (`.forgejo/workflows/`) billige,
-cluster-freie Checks — die schwere Rechnung (Scaling, GPU, 1000er-Ensembles)
-bleibt dem Cluster vorbehalten, nicht der CI.
+Bei jedem Push laufen billige, cluster-freie Checks — die schwere Rechnung
+(Scaling, GPU, 1000er-Ensembles) bleibt dem Cluster vorbehalten, nicht der CI.
+
+Die CI läuft auf **beiden** Hosts mit denselben Skripten (`scripts/ci/*`):
+auf dem primären **Forgejo** über `.forgejo/workflows/` und auf dem
+**GitHub-Mirror** über `.github/workflows/`. Inhaltlich identisch; nur
+technische Unterschiede: Forgejo braucht Container mit node (der Runner ist
+podman/non-root), GitHub läuft direkt auf dem Runner mit `sudo apt` und
+`actions/upload-artifact@v4` (v3 ist auf GitHub abgeschaltet).
 
 ### Simulation CI (`simulation.yml`) — läuft bei jedem Push
 
@@ -549,7 +560,9 @@ und lässt die serielle Version streng unter Valgrind laufen
 (`--error-exitcode=1`, `--leak-check=full`, definitive Leaks = rot). Der
 vollständige Report wird als Artefakt **`valgrind-report`** hochgeladen — auch
 bei gefundenen Fehlern (`if: always()`). Direkt zu den Läufen inkl. Download:
-[**Valgrind-Läufe → Artefakt `valgrind-report`**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=valgrind.yml).
+[Valgrind-Läufe auf **Forgejo**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=valgrind.yml)
+· [auf **GitHub**](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/valgrind.yml)
+— jeweils Lauf öffnen → Artefakt `valgrind-report`.
 
 Beide Skripte sind auch **lokal** ausführbar:
 `bash scripts/ci/build_and_test.sh` bzw. `bash scripts/ci/valgrind_check.sh`.
@@ -561,9 +574,10 @@ beim Start scheitern; auf dem CI-Runner mit stabilem glibc läuft es.)
 Baut `report.pdf` und die Präsentation mit TeXLive und lädt beide PDFs als
 Artefakt **`pdfs`** hoch. Läuft **nicht** bei jedem Push, sondern nur, wenn die
 Commit-Message das Schlüsselwort **`document`** enthält — oder manuell über
-„Run workflow" (`workflow_dispatch`). Fertige PDFs zum Download:
-[**Dokumente-Läufe → Artefakt `pdfs`**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=documents.yml)
-(jeweils der neueste erfolgreiche Lauf).
+„Run workflow" (`workflow_dispatch`). Fertige PDFs zum Download (neuester
+erfolgreicher Lauf → Artefakt `pdfs`):
+[Dokumente-Läufe auf **Forgejo**](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions?workflow=documents.yml)
+· [auf **GitHub**](https://github.com/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/documents.yml).
 
 > Beide Jobs laufen im Container `node:20-bookworm`: Der podman-Runner führt
 > JS-Actions (`checkout`, `upload-artifact`) mit dem node *im Container* aus,
