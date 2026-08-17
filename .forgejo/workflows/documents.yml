@@ -3,9 +3,10 @@
 # Faengt LaTeX-Fehler (fehlende Pakete, kaputte Referenzen, Escape-Artefakte)
 # und stellt bei jedem Push frische PDFs zum Download bereit.
 #
-# Voraussetzungen:
-#   - Forgejo-Actions-Runner mit Label 'ubuntu-latest', der 'container:' erlaubt.
-#   - Artefakt-Speicher auf der Forgejo-Instanz aktiviert (fuer upload-artifact).
+# Basis 'node:20-bookworm' statt 'texlive/texlive': Forgejo fuehrt JS-Actions
+# (checkout, upload-artifact) mit dem Container-node aus -- das TeXLive-Image
+# bringt kein node mit. Wir installieren eine TeXLive-Teilmenge via apt
+# (reicht fuer beamer/metropolis, siunitx, babel-german, tikz/pgf).
 name: Dokumente
 
 on:
@@ -16,9 +17,19 @@ jobs:
   latex:
     runs-on: ubuntu-latest
     container:
-      image: texlive/texlive:latest   # volles Schema: metropolis, babel-german, siunitx ...
+      image: node:20-bookworm
     steps:
       - uses: actions/checkout@v4
+      - name: TeXLive installieren
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-fonts-extra \
+            texlive-lang-german texlive-science texlive-pictures \
+            texlive-plain-generic latexmk
       - name: Bericht bauen (report.pdf)
         run: |
           pdflatex -interaction=nonstopmode -halt-on-error report.tex
