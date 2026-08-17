@@ -7,14 +7,19 @@
 # (checkout, upload-artifact) mit dem Container-node aus -- das TeXLive-Image
 # bringt kein node mit. Wir installieren eine TeXLive-Teilmenge via apt
 # (reicht fuer beamer/metropolis, siunitx, babel-german, tikz/pgf).
+#
+# Laeuft NICHT bei jedem Push, sondern nur wenn die Commit-Message das
+# Schluesselwort 'document' enthaelt -- oder manuell via workflow_dispatch.
 name: Dokumente
 
 on:
   push:
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   latex:
+    # Nur bauen, wenn ausdruecklich gewuenscht (Keyword) oder manuell gestartet.
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'document') }}
     runs-on: ubuntu-latest
     container:
       image: node:20-bookworm
@@ -27,7 +32,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             texlive-latex-base texlive-latex-recommended texlive-latex-extra \
-            texlive-fonts-recommended texlive-fonts-extra \
+            texlive-fonts-recommended texlive-fonts-extra lmodern \
             texlive-lang-german texlive-science texlive-pictures \
             texlive-plain-generic latexmk
       - name: Bericht bauen (report.pdf)
