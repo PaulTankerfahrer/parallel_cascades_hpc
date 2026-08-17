@@ -14,6 +14,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CFG="$ROOT/src/params_valgrind.ini"
+# Report landet im Repo-Workspace, damit die CI ihn als Artefakt hochladen kann.
+LOG="${VALGRIND_LOG:-$ROOT/valgrind-report.txt}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
@@ -21,11 +23,20 @@ cd "$WORK"
 echo "== Kompilieren (mit -g) =="
 gcc -O1 -g -o cascade_serial "$ROOT/src/cascade_serial.c" -lm
 
-echo "== Valgrind (seriell, strict) =="
+echo "== Valgrind (seriell, strict) -> $LOG =="
+set +e
 valgrind --error-exitcode=1 \
          --leak-check=full \
          --errors-for-leak-kinds=definite \
          --track-origins=yes \
+         --log-file="$LOG" \
          ./cascade_serial "$CFG"
+rc=$?
+set -e
 
+echo "---- Valgrind-Report ($LOG) ----"
+cat "$LOG"
+echo "--------------------------------"
+[ "$rc" -eq 0 ] \
+  || { echo "== FEHLER: Valgrind meldet Speicherfehler/definitiven Leak (exit $rc) =="; exit 1; }
 echo "== Keine Speicherfehler / definitiven Leaks =="

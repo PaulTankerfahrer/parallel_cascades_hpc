@@ -55,3 +55,6 @@ __pycache__/
 cascade_serial
 mpi_cascade
 cascade_cuda
+
+# CI: von scripts/ci/valgrind_check.sh erzeugter Report
+valgrind-report.txt

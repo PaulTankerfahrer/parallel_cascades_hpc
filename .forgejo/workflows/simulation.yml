@@ -47,3 +47,10 @@ jobs:
           apt-get install -y --no-install-recommends valgrind
       - name: Valgrind-Speichercheck (seriell)
         run: bash scripts/ci/valgrind_check.sh
+      - name: Valgrind-Report als Artefakt hochladen
+        if: always()   # auch bei gefundenen Fehlern hochladen, zum Nachschauen
+        uses: actions/upload-artifact@v3
+        with:
+          name: valgrind-report
+          path: valgrind-report.txt
+          if-no-files-found: error

@@ -4,6 +4,8 @@ Ein konfigurierbarer, paralleler 2D-Masse-Feder-Simulator für Kollisions-
 kaskaden (Strahlenschaden). Drei Implementierungen teilen sich dieselbe
 Konfigurationsdatei und dasselbe Modell: **seriell**, **MPI** und **CUDA**.
 
+[![Simulation CI](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions/workflows/simulation.yml/badge.svg)](https://forgejo.paultankerfahrer.org/PaulTankerfahrer/parallel_cascades_hpc/actions)
+
 ---
 
 ## Projektstruktur
@@ -500,6 +502,49 @@ Ein vollwertiges Negativergebnis, siehe Abschnitt 11.4 im Bericht.*
 - **`Präsentation.html`** — eigenständige HTML/CSS/JS-Präsentation, keine
   externen Abhängigkeiten, Tastatur-Navigation (Pfeiltasten/Space/PageDown);
   einfach im Browser öffnen.
+
+---
+
+## Continuous Integration
+
+Bei jedem Push laufen über **Forgejo Actions** (`.forgejo/workflows/`) billige,
+cluster-freie Checks — die schwere Rechnung (Scaling, GPU, 1000er-Ensembles)
+bleibt dem Cluster vorbehalten, nicht der CI.
+
+### Simulation CI (`simulation.yml`) — läuft bei jedem Push
+
+- **Physik-Smoke-Test** (`scripts/ci/build_and_test.sh`): baut serielle und
+  MPI-Version, dann auf einem kleinen Gitter (`src/params_valgrind.ini`):
+  1. **Energieerhaltung** — der relative Energiedrift muss `|Δ| < 0,5 %`
+     bleiben (real ~0,04 %). Fängt physikalisch kaputte Änderungen an der
+     Integration/Kraftberechnung, bevor sie Ergebnisse verfälschen.
+  2. **Determinismus** — zweimal derselbe Seed muss dieselbe Zahl gerissener
+     Bindungen (`broken_bonds`) liefern.
+  3. **Sanity** — es ist überhaupt eine Kaskade passiert (`broken_bonds > 0`).
+  4. **MPI-Smoke** — 2 Ränge laufen ohne Absturz und geben `RESULT` aus.
+- **Valgrind-Speichercheck** (`scripts/ci/valgrind_check.sh`): baut mit `-g`
+  und lässt die serielle Version streng unter Valgrind laufen
+  (`--error-exitcode=1`, `--leak-check=full`, definitive Leaks = rot). Der
+  vollständige Report wird als Artefakt **`valgrind-report`** hochgeladen (auch
+  bei gefundenen Fehlern, `if: always()`) und lässt sich vom jeweiligen
+  CI-Lauf herunterladen.
+
+Beide Skripte sind auch **lokal** ausführbar:
+`bash scripts/ci/build_and_test.sh` bzw. `bash scripts/ci/valgrind_check.sh`.
+(Hinweis: Auf sehr aktuellem glibc — Rolling-Release — kann Valgrind lokal
+beim Start scheitern; auf dem CI-Runner mit stabilem glibc läuft es.)
+
+### Dokumente (`documents.yml`) — nur auf Anforderung
+
+Baut `report.pdf` und die Präsentation mit TeXLive und lädt beide PDFs als
+Artefakt **`pdfs`** hoch. Läuft **nicht** bei jedem Push, sondern nur, wenn die
+Commit-Message das Schlüsselwort **`document`** enthält — oder manuell über
+„Run workflow" (`workflow_dispatch`).
+
+> Beide Jobs laufen im Container `node:20-bookworm`: Der podman-Runner führt
+> JS-Actions (`checkout`, `upload-artifact`) mit dem node *im Container* aus,
+> darum ein Image mit node an Bord (plus git/gcc); OpenMPI, Valgrind bzw. eine
+> TeXLive-Teilmenge werden per `apt` nachgezogen.
 
 ---
 
