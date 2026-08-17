@@ -1,0 +1,46 @@
+# Dokumente-CI (GitHub Actions): Bericht + Praesentation bauen, PDFs als Artefakt.
+#
+# Faengt LaTeX-Fehler und stellt frische PDFs bereit. TeXLive-Teilmenge via
+# apt (reicht fuer beamer/metropolis, siunitx, babel-german, tikz, lmodern).
+#
+# Laeuft NICHT bei jedem Push, sondern nur wenn die Commit-Message das
+# Schluesselwort 'document' enthaelt -- oder manuell via workflow_dispatch.
+name: Dokumente
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  latex:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'document') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: TeXLive installieren
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-fonts-extra lmodern \
+            texlive-lang-german texlive-science texlive-pictures \
+            texlive-plain-generic latexmk
+      - name: Bericht bauen (report.pdf)
+        run: |
+          pdflatex -interaction=nonstopmode -halt-on-error report.tex
+          pdflatex -interaction=nonstopmode -halt-on-error report.tex
+      - name: Präsentation bauen (physik_praesentation.pdf)
+        working-directory: presentation
+        run: |
+          pdflatex -interaction=nonstopmode -halt-on-error physik_praesentation.tex
+          pdflatex -interaction=nonstopmode -halt-on-error physik_praesentation.tex
+      - name: PDFs als Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdfs
+          path: |
+            report.pdf
+            presentation/physik_praesentation.pdf
+          if-no-files-found: error

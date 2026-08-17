@@ -1,0 +1,29 @@
+# Valgrind-CI (GitHub Actions): Speicherkorrektheit der seriellen Version.
+#
+# Eigener Workflow (statt Job in simulation.yml), damit er ein eigenes
+# Status-Badge bekommt. Der volle Report wird als Artefakt 'valgrind-report'
+# hochgeladen -- auch bei gefundenen Fehlern (if: always()), zum Nachschauen.
+name: Valgrind
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  valgrind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Abhängigkeiten (Valgrind)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends valgrind
+      - name: Valgrind-Speichercheck (seriell)
+        run: bash scripts/ci/valgrind_check.sh
+      - name: Valgrind-Report als Artefakt hochladen
+        if: always()   # auch bei gefundenen Fehlern hochladen, zum Nachschauen
+        uses: actions/upload-artifact@v4
+        with:
+          name: valgrind-report
+          path: valgrind-report.txt
+          if-no-files-found: error
