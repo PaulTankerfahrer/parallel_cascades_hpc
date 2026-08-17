@@ -1,7 +1,6 @@
 # Kollisionskaskaden-Simulator — HPC-Endprojekt
 
-Ein konfigurierbarer, paralleler 2D-Masse-Feder-Simulator für Kollisions-
-kaskaden (Strahlenschaden). Drei Implementierungen teilen sich dieselbe
+Ein konfigurierbarer, paralleler 2D-Masse-Feder-Simulator für Kollisionskaskaden (Strahlenschaden). Drei Implementierungen teilen sich dieselbe
 Konfigurationsdatei und dasselbe Modell: **seriell**, **MPI** und **CUDA**.
 
 **CI (Forgejo, primär):**
