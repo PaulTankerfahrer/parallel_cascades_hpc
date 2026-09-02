@@ -58,3 +58,10 @@ cascade_cuda
 
 # CI: von scripts/ci/valgrind_check.sh erzeugter Report
 valgrind-report.txt
+
+# Python-venv fuer den Clauset-Refit (powerlaw-Paket)
+.venv-powerlaw/
+
+# Clusterstatistik: getrimmte Rohdaten und Laufprotokolle (regenerierbar)
+results/statistik/ensemble_fest/*/disp/
+results/statistik/*.log
