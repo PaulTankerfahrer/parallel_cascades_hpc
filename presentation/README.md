@@ -7,7 +7,7 @@ Kurze, physikorientierte Vorstellung der Kollisionskaskaden-Simulation
 
 | Datei | Zweck |
 |---|---|
-| `physik_praesentation.tex` / `.pdf` | Beamer-Folien (Physik, ~9 Folien) |
+| `physik_praesentation.tex` / `.pdf` | Beamer-Folien: 8 Folien + 5 Reservefolien im Anhang |
 | `videos/cascade_1_geschwindigkeit.mp4` | Geschwindigkeitsfeld — thermischer Spike |
 | `videos/cascade_2_schaden.mp4` | Schadensbildung — gerissene Bindungen |
 | `videos/cascade_3_verschiebung.mp4` | Verschiebungsfeld — Heat-Spike |
@@ -39,12 +39,37 @@ pdflatex physik_praesentation.tex   # 2x für Referenzen
 > Hinweis: Es genügt das PyPI-Paket `ovito` (headless-Rendering).
 > Die OVITO-Desktop-GUI allein bringt **kein** skriptbares Python mit.
 
+## Aufbau der Folien
+
+1. Warum ein Minimalmodell? — Wolfram, Neutronen, Kaskaden; Verteilungen
+   brauchen Ensembles, volle MD ist dafür zu teuer.
+2. Das Modell — Dreiecksgitter, brechbare Feder + steile Abstoßung.
+3. Video: Der thermische Spike.
+4. Video: Das Verschiebungsfeld — `disp` ist die Clustervariable.
+5. Ein Ergebnis, das zu schön war — der alte Exponent und seine Prüfung.
+6. Das saubere Ensemble — feste Energie, 3 × 300 Läufe.
+7. Was die Zahlen sagen — und was nicht.
+8. Von der Korrektur zur Bachelorarbeit.
+
+Danach folgen nach `\appendix` fünf Reservefolien für Rückfragen (Weg von der
+CSV zum Cluster, Inhalt der Endzustandstabelle, beide Clusterdefinitionen im
+Vergleich, zwei weitere Videos). Sie werden nicht mitgezählt.
+
 ## Physikalische Kernaussagen
 
 - Ein PKA (Primäres Rückstoßatom) startet eine verzweigende Kollisionskaskade.
 - Sichtbar werden: heißer Spike (Geschwindigkeit), Defektbildung (gerissene
   Bindungen) und bleibende Verschiebung.
-- Über 1000 Kaskaden folgt die Verteilung der Defekt-Clustergrößen einem
-  **Potenzgesetz** $F(n)\propto n^{-S}$ mit $S\approx 1{,}4$ — skalenfrei und
-  robust gegen Defektheilung. Vergleichswert 3D-Wolfram (Sand et al. 2013):
-  $S=1{,}63$.
+- Der frühere Befund „Clustergrößen folgen einem Potenzgesetz mit $S\approx1{,}4$"
+  ist **nicht haltbar**: Der Goodness-of-Fit-Test verwirft ihn, und der Exponent
+  entsteht aus der log-uniform gezogenen PKA-Energie zusammen mit $n\sim E^{2,9}$,
+  nicht aus der Kaskadenphysik.
+- Bei **fester** PKA-Energie und einer Clusterdefinition, die getrennte
+  Defektcluster auflöst (`disp > 1,0`, Linkradius `1,0`), ergibt sich
+  $S = 2{,}00 \pm 0{,}01$ bei $E=2400$ — mit fallendem Trend über die
+  Kaskadengröße (2,50 → 2,19 → 2,00) und daher nicht konvergiert.
+- Vergleichswert 3D-Wolfram (Sand et al. 2013): $S=1{,}63$ — der 2D-Wert liegt
+  **darüber**, konsistent mit der geringeren Konnektivität in zwei Dimensionen.
+
+Ausführlich: `../results/statistik/fit_gepoolt/BEFUND_gepoolt.md` und
+`../results/statistik/fit_fest/BEFUND_fest.md`.

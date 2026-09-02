@@ -4,6 +4,13 @@
 %
 %  Bau:  pdflatex physik_praesentation.tex   (2x fuer Referenzen)
 %
+%  Aufbau: 8 Folien, 2 Videos.
+%    1 Warum ein Minimalmodell?      5 Ein Ergebnis, das zu schoen war
+%    2 Das Modell                    6 Das saubere Ensemble
+%    3 Video: thermischer Spike      7 Was die Zahlen sagen -- und was nicht
+%    4 Video: Verschiebungsfeld      8 Von der Korrektur zur Bachelorarbeit
+%  Danach Reservefolien (Anhang, nicht Teil des Vortrags).
+%
 %  Videos (separate MP4-Dateien in videos/) werden ueber klickbare
 %  Links gestartet -- in den meisten PDF-Viewern oeffnet das den
 %  Systemplayer. Auf jeder Video-Folie liegt ein Standbild aus stills/.
@@ -49,7 +56,40 @@
 \maketitle
 
 
-% ---------------------------------------------------------------------
+% ===================================================================== 1
+\begin{frame}{Warum ein Minimalmodell?}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      {\small \textbf{Das Problem}
+      \begin{itemize}
+        \item Die erste Wand eines Fusionsreaktors ist aus \alert{Wolfram}
+          und steht im Fluss von 14-MeV-Neutronen.
+        \item Ein Neutron stößt ein Gitteratom an -- das \alert{PKA}. Es
+          löst in Pikosekunden eine \alert{Kollisionskaskade} aus.
+        \item Zurück bleiben Defektcluster: Versprödung, begrenzte
+          Lebensdauer der Wand.
+      \end{itemize}}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      {\small \textbf{Warum das Statistik verlangt}
+      \begin{itemize}
+        \item Interessant ist nicht die einzelne Kaskade, sondern die
+          \alert{Verteilung} der Clustergrößen.
+        \item Eine Verteilung braucht Hunderte bis Tausende Kaskaden --
+          ein \alert{Ensemble}.
+        \item Volle Molekulardynamik: Millionen Atome pro Kaskade. Für
+          Ensembles zu teuer.
+      \end{itemize}}
+    \end{column}
+  \end{columns}
+  \begin{alertblock}{Der Ansatz}
+    {\small Nur \textbf{Massen und brechbare Federn}, zwei Dimensionen --
+    eine Kaskade in Sekunden statt Stunden.
+    \textbf{Kernfrage: Wie viel Statistik überlebt in Massen und Federn?}}
+  \end{alertblock}
+\end{frame}
+
+% ===================================================================== 2
 \begin{frame}{Das Modell}
   \begin{columns}[T]
     \begin{column}{0.54\textwidth}
@@ -68,56 +108,247 @@
     \end{column}
     \begin{column}{0.46\textwidth}
       \centering
-      \includegraphics[width=\linewidth]{M2_force_law.png}\\
-      {\scriptsize Die beiden Kräfte: Feder (blau) + Abstoßung (rot).}\\[0.5em]
-      \includegraphics[width=0.6\linewidth]{modell_ruhelage.png}\\
+      \includegraphics[width=0.86\linewidth]{M2_force_law.png}\\
+      {\scriptsize Die beiden Kräfte: Feder (blau) + Abstoßung (rot).}\\[0.4em]
+      \includegraphics[width=0.42\linewidth]{modell_ruhelage.png}\\
       {\scriptsize Modell in Ruhelage: Dreiecksgitter mit Federbindungen.}
     \end{column}
   \end{columns}
 \end{frame}
 
-% ---------------------------------------------------------------------
-
-\videofolie{1 · Der thermische Spike}{still_1.png}{cascade_1_geschwindigkeit.mp4}
+% ===================================================================== 3
+\videofolie{Der thermische Spike}{still_1.png}{cascade_1_geschwindigkeit.mp4}
   {Farbe = Geschwindigkeit. Die Einschlagsenergie wird zu einer heißen,
    ungeordneten Zone bewegter Atome, die expandiert und wieder abkühlt.}
 
-\videofolie{2 · Die Schadensbildung}{still_2.png}{cascade_2_schaden.mp4}
-  {Farbe = Zahl gerissener Bindungen. Die Defektstruktur wächst und
-   \alert{friert} als bleibender Cluster ins Gitter ein.}
+% ===================================================================== 4
+\videofolie{Das Verschiebungsfeld}{still_3.png}{cascade_3_verschiebung.mp4}
+  {Farbe = bleibende Auslenkung vom Gitterplatz (\texttt{disp}).
+   \alert{Aus diesem Feld werden die Defektcluster definiert.}}
 
-\videofolie{3 · Das Verschiebungsfeld}{still_3.png}{cascade_3_verschiebung.mp4}
-  {Farbe = bleibende Auslenkung vom Gitterplatz. Sichtbar wird der
-   „Heat-Spike``: eine kompakte Zone dauerhaft verschobener Atome.}
-
-\videofolie{4 · Reale Bestrahlung: viele Einschläge}{still_4.png}{cascade_4_mehrere_pka.mp4}
-  {Fünf gleichzeitige PKAs. Überlappende Kaskaden -- und ein Atom, das
-   entlang einer Gitterrichtung \alert{kanalisiert} (der lange Track).}
-
-% ---------------------------------------------------------------------
-\begin{frame}{Das physikalische Ergebnis: ein Potenzgesetz}
+% ===================================================================== 5
+\begin{frame}{Ein Ergebnis, das zu schön war}
   \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      {\footnotesize \textbf{Das alte Resultat}\\[0.2em]
+      1000 Kaskaden, alle Cluster zusammengeworfen: eine Gerade über fast
+      drei Größenordnungen, $F(n)\propto n^{-S}$ mit $S\approx1{,}4$.}\\[0.2em]
+      \centering
+      \includegraphics[width=0.50\linewidth]{powerlaw_ccdf.png}
+    \end{column}
     \begin{column}{0.52\textwidth}
-      Über \alert{1000 Kaskaden} gemittelt folgt die Verteilung der
-      Clustergrößen einem Potenzgesetz:
-      \[ F(n)\;\propto\; n^{-S},\qquad S \approx 1{,}4. \]
-      \begin{itemize}
-        \item \alert{Skalenfrei}: keine „typische`` Clustergröße --
-          Kennzeichen selbstorganisierter Kritikalität.
-        \item \alert{Robust}: mit/ohne Defektheilung fast identisch
-          ($S=1{,}36$ vs.\ $1{,}39$).
-        \item Vergleich 3D-Wolfram (Sand et al.\ 2013): $S=1{,}63$.
-          Der 2D-Wert liegt konsistent darunter.
-      \end{itemize}
+      {\footnotesize \textbf{Die Prüfung nach Clauset (2009)}\\[0.4em]
+      \begin{tabular}{@{}ll@{}}
+        \toprule
+        Goodness-of-Fit & \alert{$p = 0{,}000$}\\
+        vs.\ Exponential & $R = +50$ \quad (gewinnt)\\
+        vs.\ Lognormal & \alert{$R = -9{,}5$} \quad (verliert)\\
+        vs.\ Cutoff & \alert{$R = -45$} \quad (verliert)\\
+        \bottomrule
+      \end{tabular}\\[0.4em]
+      Das Potenzgesetz schlägt nur die Exponentialverteilung -- die
+      Mindesthürde.}
+    \end{column}
+  \end{columns}
+  \begin{alertblock}{Wir haben das Sampling gemessen, nicht die Kaskade}
+    {\footnotesize Die PKA-Energie wurde \textbf{log-uniform} gezogen, und es
+    gilt $n\sim E^{2{,}9}$ ($r=0{,}97$). Dann ist $\ln n$ gleichverteilt --
+    also $p(n)\sim n^{-1}$, \textbf{unabhängig von jeder Physik}. In keinem
+    einzelnen Energieband taucht die 1,4 auf.}
+  \end{alertblock}
+\end{frame}
+
+% ===================================================================== 6
+\begin{frame}{Das saubere Ensemble}
+  {\footnotesize \alert{$3\times300$ Läufe bei fester Energie}
+  ($E=1300/1800/2400$). Einschlagort, Winkel und Seed hängen nur von der
+  Lauf-Nummer ab, nicht von der Energie -- ein \alert{gepaartes} Design,
+  das den Energieeffekt isoliert.}
+  \vspace{0.3em}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      {\footnotesize
+      \textbf{Die alte Clusterdefinition trägt nicht.}
+      Mit $\texttt{disp}>0{,}5$ und Linkradius $1{,}5$ verschmilzt die ganze
+      Schadenszone zu \alert{einem} Klumpen: 92\,\% aller verlagerten Atome
+      liegen im größten Cluster. Kein Fit ($D=0{,}17\ldots0{,}30$).\\[0.5em]
+      \textbf{Feiner: $\texttt{disp}>1{,}0$, Linkradius $1{,}0$.}
+      Dieselben Läufe, dieselben Atome -- aber \alert{30--70 getrennte
+      Cluster} pro Lauf. Das sind die Objekte, die Sand et al.\ zählen.}\\[0.5em]
+      {\scriptsize
+      \begin{tabular}{@{}rrrr@{}}
+        \toprule
+        $E$ & Cluster & $S$ & KS-$D$\\
+        \midrule
+        1300 & \phantom{0}9\,281 & 2,50 & 0,032\\
+        1800 & 14\,588 & 2,19 & 0,017\\
+        2400 & 21\,580 & \alert{2,00} & \alert{0,013}\\
+        \bottomrule
+      \end{tabular}}
     \end{column}
     \begin{column}{0.48\textwidth}
       \centering
-      \includegraphics[width=\linewidth]{powerlaw_ccdf.png}\\
-      {\scriptsize CCDF über Clustergröße $n$ (log-log): eine Gerade über
-       fast drei Größenordnungen.}
+      \includegraphics[width=0.90\linewidth]{P6_ccdf_fein.png}
     \end{column}
   \end{columns}
 \end{frame}
+
+% ===================================================================== 7
+\begin{frame}{Was die Zahlen sagen -- und was nicht}
+  \begin{columns}[T]
+    \begin{column}{0.62\textwidth}
+      {\footnotesize
+      \begin{itemize}
+        \item \textbf{$S$ hängt von der Clusterdefinition ab.} Sechs
+          Konventionen, dieselben 900 Läufe: \alert{$S=1{,}23$ bis $3{,}30$}.
+          Eine Zahl ohne Angabe der Definition ist bedeutungslos -- das gilt
+          auch beim Lesen von MD-Literatur.
+        \item \textbf{$S$ fällt monoton mit der Kaskadengröße}
+          ($2{,}50\to2{,}19\to2{,}00$), der KS-Abstand fällt mit. Bei
+          $250\times250$ ist \alert{nichts konvergiert}.
+        \item \textbf{Sand et al.\ (2013)} ist jetzt vergleichbar -- feste
+          Energie, getrennte Cluster. Der Vergleich fällt aber andersherum
+          aus: 3D-Wolfram $1{,}63$, hier 2D $\approx2{,}0$, also
+          \alert{darüber}. Konsistent mit der geringeren Konnektivität in
+          zwei Dimensionen.
+      \end{itemize}}
+    \end{column}
+    \begin{column}{0.36\textwidth}
+      \centering
+      {\scriptsize
+      \begin{tabular}{@{}lrrr@{}}
+        \toprule
+        Definition & 1300 & 1800 & 2400\\
+        \midrule
+        $0{,}5$ / $1{,}5$ & 1,40 & 1,35 & 1,23\\
+        $1{,}0$ / $1{,}5$ & 1,57 & 1,50 & 1,45\\
+        $0{,}5$ / $1{,}0$ & 1,98 & 2,10 & 2,25\\
+        $1{,}0$ / $1{,}0$ & 2,50 & 2,19 & 2,00\\
+        $1{,}5$ / $1{,}0$ & 2,78 & 2,51 & 2,28\\
+        $2{,}0$ / $1{,}0$ & 3,30 & 3,02 & 2,77\\
+        \bottomrule
+      \end{tabular}\\[0.3em]
+      $S$ für \texttt{disp}-Schwelle / Linkradius,\\ je Energie.}
+    \end{column}
+  \end{columns}
+  \vspace{0.2em}
+  \hrule height 0.4pt
+  \vspace{0.2em}
+  {\scriptsize Ehrlich bleiben: Der Goodness-of-Fit-Test verwirft auch die
+  feine Definition ($p=0{,}000$) -- bei $n\approx21\,600$ verwirft er
+  allerdings schon $D=0{,}013$. Der brauchbare Befund ist der \emph{Trend},
+  nicht der Einzelwert.}
+\end{frame}
+
+% ===================================================================== 8
+\begin{frame}{Von der Korrektur zur Bachelorarbeit}
+  {\footnotesize Die offenen Enden sind das Programm:}\\[0.2em]
+  {\footnotesize
+  \begin{enumerate}
+    \item \textbf{Konvergiert $S$?} Größere Box, höhere Energien, Ensembles
+      auf \alert{Noctua 2}. Finite-Size-Effekt oder Physik?
+    \item \textbf{Clusterdefinition systematisch.} $S$ als Fläche über
+      Schwelle und Linkradius statt sechs Stichproben -- gibt es ein Plateau,
+      das eine Konvention auszeichnet?
+    \item \textbf{Wolfram-nahe Kalibrierung.} Federkonstante, Bruchdehnung
+      und Abstoßung an Kohäsionsenergie und Schwellenverlagerungsenergie
+      $E_d$ anpassen.
+    \item \textbf{Eigene 2D-MD-Referenz.} Dieselbe Geometrie mit echtem
+      Potenzial rechnen -- dann vergleicht man Modell gegen MD, statt über
+      die Dimensionen hinweg.
+    \item \textbf{Die Screening-These.} Reproduziert das Minimalmodell die
+      Statistik, taugt es als billiger \alert{Vorfilter}: Parameterräume grob
+      absuchen, teure MD nur dort einsetzen, wo es interessant wird.
+  \end{enumerate}}
+  \vspace{0.4em}
+  \begin{center}
+    \alert{\large Die Methodik steht, die Fragen sind präzise --
+    \textbf{das ist die Arbeit}.}
+  \end{center}
+\end{frame}
+
+
+% =====================================================================
+%  Reservefolien -- nicht Teil des Vortrags, fuer Rueckfragen.
+% =====================================================================
+\appendix
+
+\begin{frame}{Reserve: Von der Tabelle zur Clustergröße}
+  \centering
+  \includegraphics[width=0.88\linewidth]{P1_csv_zu_cluster.png}\\[0.4em]
+  {\scriptsize
+  \begin{columns}[T]
+    \begin{column}{0.31\textwidth}
+      \textbf{1 · Schwelle}\\
+      Verlagert, wenn $\texttt{disp}>0{,}5\,L_0$ -- eine halbe
+      Gitterkonstante.
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \textbf{2 · Nachbarschaft}\\
+      Verlagerte Atome mit Abstand $<1{,}5\,L_0$ bilden einen Cluster;
+      seine Größe $n$ ist die Zahl seiner Atome.
+    \end{column}
+    \begin{column}{0.31\textwidth}
+      \textbf{3 · Poolen}\\
+      \alert{1000 Läufe} $\to$ \alert{2391 Cluster}, $n$ von 1 bis 2920.
+      Deren Häufigkeitsverteilung ist das Ergebnis.
+    \end{column}
+  \end{columns}}
+\end{frame}
+
+\begin{frame}{Reserve: Was ein Lauf hinterlässt}
+  \begin{columns}[T]
+    \begin{column}{0.53\textwidth}
+      Mitgeschrieben werden drei Dinge:
+      \begin{itemize}
+        \item \textbf{Momentaufnahmen} während des Laufs: Ort,
+          Geschwindigkeit, Verschiebung und gerissene Bindungen jedes
+          Atoms -- daraus entstehen die Videos.
+        \item \textbf{Energiebilanz}: kinetisch, Feder, Abstoßung,
+          Bruch. Reine Kontrolle -- die Summe muss erhalten bleiben.
+        \item \textbf{Endzustand} nach dem Abkühlen: \alert{eine Zeile
+          pro Atom}. Aus dieser Tabelle kommt die gesamte Statistik.
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.47\textwidth}
+      \centering
+      {\footnotesize Endzustand, $250\times250=62\,500$ Zeilen:}\\[0.4em]
+      {\scriptsize
+      \begin{tabular}{rrrr}
+        \toprule
+        \texttt{x} & \texttt{y} & \texttt{disp} & \texttt{broken}\\
+        \midrule
+        0.0000 & 0.0000 & 0.0000 & 4\\
+        1.0000 & 0.0000 & 0.0000 & 2\\
+        \multicolumn{4}{c}{$\vdots$}\\
+        114.3486 & 83.5237 & 0.5040 & 0\\
+        123.5459 & 98.3829 & 1.2109 & 2\\
+        \bottomrule
+      \end{tabular}}\\[0.7em]
+      \begin{minipage}{0.95\linewidth}\raggedright\footnotesize
+      \textbf{disp}: bleibende Auslenkung vom \emph{eigenen} Gitterplatz,
+      in Gitterabständen $L_0$.\\[0.3em]
+      \textbf{broken}: wie viele der sechs Bindungen gerissen sind.
+      \end{minipage}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Reserve: beide Clusterdefinitionen im Vergleich}
+  \centering
+  \includegraphics[width=0.98\linewidth]{P6_ccdf_beide.png}\\[0.3em]
+  {\scriptsize Dieselben 900 Läufe. Links bricht die CCDF senkrecht ab --
+   der eine Riesencluster. Rechts eine durchgehende Verteilung über zwei
+   Größenordnungen.}
+\end{frame}
+
+\videofolie{Reserve: Die Schadensbildung}{still_2.png}{cascade_2_schaden.mp4}
+  {Farbe = Zahl gerissener Bindungen. Die Defektstruktur wächst und
+   \alert{friert} als bleibender Cluster ins Gitter ein.}
+
+\videofolie{Reserve: viele Einschläge}{still_4.png}{cascade_4_mehrere_pka.mp4}
+  {Fünf gleichzeitige PKAs. Überlappende Kaskaden -- und ein Atom, das
+   entlang einer Gitterrichtung \alert{kanalisiert} (der lange Track).}
 
 
 \end{document}
