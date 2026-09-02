@@ -18,10 +18,27 @@ Kurze, physikorientierte Vorstellung der Kollisionskaskaden-Simulation
 
 ## Videos abspielen
 
-Die Videos sind **eigenständige MP4-Dateien**. In der PDF ist jede Video-Folie
-mit einem Standbild hinterlegt; ein Klick darauf (bzw. auf „▶ Video abspielen``)
-startet in den meisten PDF-Viewern den Systemplayer. Alternativ die MP4s direkt
-aus `videos/` öffnen.
+Die Videos sind **eigenständige MP4-Dateien** in `videos/`. Die PDF bindet sie
+auf zwei Wegen ein: als Movie-Annotation über dem Standbild (Inline-Wiedergabe)
+und als Launch-Action in der Zeile darunter (öffnet den Systemplayer).
+
+**Nicht jeder Betrachter kann das.** Firefox bzw. pdf.js ignoriert beides
+stillschweigend — der Link ist sichtbar, der Klick bewirkt nichts.
+
+| Weg | Wiedergabe |
+|---|---|
+| `pdfpc physik_praesentation.pdf` | **Empfohlen zum Vortragen.** Spielt die Videos inline ab, dazu Referentenansicht mit Timer. |
+| Okular, Präsentationsmodus | Spielt die Videos inline ab. |
+| Acrobat Reader | „extern öffnen`` startet den Systemplayer. |
+| Firefox / pdf.js | Keine Wiedergabe. Stattdessen `videos/index.html` öffnen. |
+| beliebig | MP4s direkt aus `videos/` mit mpv oder VLC. |
+
+Ohne Installation: **`videos/index.html`** im Browser öffnen — eine Seite mit
+allen vier Videos und ihren Bildunterschriften.
+
+```bash
+firefox presentation/videos/index.html
+```
 
 ## Neu erzeugen
 

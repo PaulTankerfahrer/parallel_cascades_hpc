@@ -11,9 +11,21 @@
 %    4 Video: Verschiebungsfeld      8 Von der Korrektur zur Bachelorarbeit
 %  Danach Reservefolien (Anhang, nicht Teil des Vortrags).
 %
-%  Videos (separate MP4-Dateien in videos/) werden ueber klickbare
-%  Links gestartet -- in den meisten PDF-Viewern oeffnet das den
-%  Systemplayer. Auf jeder Video-Folie liegt ein Standbild aus stills/.
+%  Videos: die MP4s liegen separat in videos/. Jede Video-Folie zeigt ein
+%  Standbild aus stills/ und bindet den Film auf zwei Wegen ein:
+%
+%    1. \movie (Paket multimedia) legt eine Screen-Annotation ueber das
+%       Standbild. pdfpc und Okular spielen den Film damit INLINE ab.
+%    2. Die Zeile darunter ist eine Launch-Action (run:), die den
+%       Systemplayer oeffnet -- das koennen Acrobat und einige andere.
+%
+%  Firefox/pdf.js kann WEDER das eine NOCH das andere: es ignoriert
+%  Launch-Actions und Screen-Annotationen stillschweigend. Zum Vortragen
+%  daher pdfpc (empfohlen) oder Okular verwenden:
+%
+%      pdfpc physik_praesentation.pdf
+%
+%  Notfalls videos/index.html im Browser oeffnen und dort abspielen.
 % =====================================================================
 \documentclass[aspectratio=169,11pt]{beamer}
 
@@ -38,11 +50,15 @@
 \graphicspath{{stills/}{figures/}{../results/images/}{./}}
 
 % Bequemes Makro fuer eine Video-Folie: #1 Titel, #2 Standbild, #3 mp4, #4 Bildunterschrift
+% Das Standbild ist die Abspielflaeche (inline in pdfpc/Okular), die Zeile
+% darunter oeffnet den Systemplayer.
 \newcommand{\videofolie}[4]{%
   \begin{frame}{#1}
     \centering
-    \href{run:videos/#3}{\includegraphics[height=0.72\textheight]{#2}}\\[0.3em]
-    {\footnotesize #4 \quad\alert{$\blacktriangleright$ \href{run:videos/#3}{Video abspielen}}}
+    \movie[showcontrols, borderwidth=0pt]%
+      {\includegraphics[height=0.72\textheight]{#2}}{videos/#3}\\[0.3em]
+    {\footnotesize #4 \quad\alert{$\blacktriangleright$
+      \href{run:videos/#3}{extern öffnen}}}
   \end{frame}}
 
 \title{Kollisionskaskaden}

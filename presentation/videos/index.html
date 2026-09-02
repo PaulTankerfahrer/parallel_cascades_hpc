@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<meta charset="utf-8">
+<title>Kollisionskaskaden — Videos</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 2.5rem 1.5rem 4rem;
+         background: #141c3c; color: #f2f2f0;
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 62rem; margin: 0 auto; }
+  h1 { font-size: 1.6rem; font-weight: 600; margin: 0 0 .3rem; }
+  .lead { color: #b9bccb; margin: 0 0 2.5rem; max-width: 46rem; }
+  section { margin-bottom: 3rem; }
+  h2 { font-size: 1.1rem; font-weight: 600; margin: 0 0 .1rem; }
+  h2 .num { color: #eb6e28; margin-right: .5rem; }
+  p.cap { color: #b9bccb; margin: .2rem 0 .9rem; max-width: 46rem; }
+  video { width: 100%; max-width: 34rem; border-radius: 6px;
+          background: #05050c; display: block; }
+  .reserve { color: #8f93a6; font-size: .85rem; text-transform: uppercase;
+             letter-spacing: .08em; margin: 3rem 0 1.5rem;
+             border-top: 1px solid #2b3358; padding-top: 1.2rem; }
+</style>
+<main>
+  <h1>Kollisionskaskaden — Videos zur Präsentation</h1>
+  <p class="lead">Fallback für Betrachter, die keine eingebetteten Videos
+    abspielen. Alle Filme stammen aus Lauf 276 des Ensembles bei fester
+    PKA-Energie (E = 2400, NX = 250, Healing an) — außer dem letzten.</p>
+
+  <section>
+    <h2><span class="num">Folie 3</span>Der thermische Spike</h2>
+    <p class="cap">Farbe = Geschwindigkeit. Die Einschlagsenergie wird zu einer
+      heißen, ungeordneten Zone bewegter Atome, die expandiert und wieder abkühlt.</p>
+    <video controls preload="metadata" src="cascade_1_geschwindigkeit.mp4"></video>
+  </section>
+
+  <section>
+    <h2><span class="num">Folie 4</span>Die Defektcluster entstehen</h2>
+    <p class="cap">Farbig: Atome über der Schwelle <code>disp &gt; 1,0</code>,
+      eingefärbt nach Cluster — grau das ungestörte Gitter. Am Ende stehen
+      72 getrennte Cluster, der größte mit 239 Atomen.</p>
+    <video controls preload="metadata" src="cascade_3_cluster.mp4"></video>
+  </section>
+
+  <p class="reserve">Reserve — für Rückfragen</p>
+
+  <section>
+    <h2>Die Schadensbildung</h2>
+    <p class="cap">Farbe = Zahl gerissener Bindungen. Die Defektstruktur wächst
+      und friert als bleibender Cluster ins Gitter ein.</p>
+    <video controls preload="metadata" src="cascade_2_schaden.mp4"></video>
+  </section>
+
+  <section>
+    <h2>Reale Bestrahlung: viele Einschläge</h2>
+    <p class="cap">Fünf gleichzeitige PKAs, andere Konfiguration (NX = 200,
+      ohne Healing). Überlappende Kaskaden — und ein Atom, das entlang einer
+      Gitterrichtung kanalisiert.</p>
+    <video controls preload="metadata" src="cascade_4_mehrere_pka.mp4"></video>
+  </section>
+</main>
+</html>
