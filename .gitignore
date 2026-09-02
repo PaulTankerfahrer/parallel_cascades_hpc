@@ -62,6 +62,12 @@ valgrind-report.txt
 # Python-venv fuer den Clauset-Refit (powerlaw-Paket)
 .venv-powerlaw/
 
+# Python-venv fuer das OVITO-Rendering der Videos
+presentation/ovito-venv/
+
+# Arbeitsverzeichnis der Videopipeline (XYZ-Dumps, mehrere hundert MB)
+presentation/_work/
+
 # Clusterstatistik: getrimmte Rohdaten und Laufprotokolle (regenerierbar)
 results/statistik/ensemble_fest/*/disp/
 results/statistik/*.log
