@@ -21,6 +21,7 @@ Konfigurationsdatei und dasselbe Modell: **seriell**, **MPI** und **CUDA**.
 - [Build-Anleitungen](#build-anleitungen)
 - [SLURM-Jobs (Noctua 2)](#slurm-jobs-noctua-2)
 - [Python-Skripte ausführen](#python-skripte-ausführen)
+- [Clusterstatistik: Potenzgesetz-Analyse](#clusterstatistik-potenzgesetz-analyse)
 - [Skript-Referenz](#skript-referenz)
 - [Wichtige Messergebnisse](#wichtige-messergebnisse)
 - [Bericht](#bericht)
@@ -77,6 +78,10 @@ project/
 │   ├── plot_cache_argument.py       # Datensatz/Rank + Effizienz (Cache-Schwelle)
 │   └── plot_ensemble_scaling.py     # Ensemble-Machbarkeit: MPI-Scaling + Energie-Kalibrierung
 │
+├── docs/                            # Dokumentation zur Auswertung
+│   ├── projektstand.md              # Gesamtstand: Befunde, Zahlen, offene Punkte
+│   └── clauset_glossar.md           # Fachbegriffe der Potenzgesetz-Analyse
+│
 ├── results/                         # Messdaten + erzeugte Plots
 │   ├── KATALOG.md                   # Vollständige Bestandsaufnahme aller Messdateien
 │   ├── mpi_strong_scaling_1node.csv
@@ -101,6 +106,12 @@ project/
 │   │   ├── valgrind_serial.txt
 │   │   ├── valgrind_mpi_rank_0.txt
 │   │   └── valgrind_mpi_rank_1.txt
+│   ├── statistik/                   # Clusterstatistik (Potenzgesetz-Analyse)
+│   │   ├── ensemble_gepoolt/        # Cluster der 1000 Original-Kaskaden (heal/no_heal)
+│   │   ├── ensemble_fest/           # 3 × 300 Läufe bei fester PKA-Energie
+│   │   ├── fit_gepoolt/             # Fit + BEFUND_gepoolt.md
+│   │   └── fit_fest/                # Fit + BEFUND_fest.md
+│   │
 │   └── images/                      # alle Plots (PNG) für report.tex
 │       ├── — Modell —
 │       ├── M1_model_schema.png
@@ -444,6 +455,46 @@ python3 $P/plot_ensemble_scaling.py   # → ensemble_scaling.png
 ```bash
 python3 $P/plot_energy.py $R/run_energy.csv   # Energiebilanz
 python3 $P/analyze.py     $R/run              # Schadenskarte + Cluster
+```
+
+---
+
+## Clusterstatistik: Potenzgesetz-Analyse
+
+Die Auswertung der Defekt-Clustergrößen nach Clauset, Shalizi & Newman (2009)
+liegt in einem eigenen Zweig — Skripte in `scripts/python/statistik/`,
+Ergebnisse in `results/statistik/`. Sie braucht das Paket `powerlaw` in einem
+eigenen venv:
+
+```bash
+python3 -m venv .venv-powerlaw && .venv-powerlaw/bin/pip install powerlaw
+```
+
+**Kurzfassung der Befunde:** Der Exponent $S \approx 1{,}4$ aus dem Bericht ist
+reproduzierbar, hält dem Goodness-of-Fit-Test aber nicht stand — er entsteht aus
+der log-uniform gezogenen PKA-Energie zusammen mit $n \sim E^{2,9}$, nicht aus
+der Kaskadenphysik. Bei fester Energie und einer Clusterdefinition, die getrennte
+Defektcluster auflöst, ergibt sich $S = 2{,}00 \pm 0{,}01$ bei $E = 2400$, mit
+fallendem Trend über die Kaskadengröße und daher nicht konvergiert.
+
+Einstieg: [`docs/projektstand.md`](docs/projektstand.md) ·
+Begriffe: [`docs/clauset_glossar.md`](docs/clauset_glossar.md) ·
+Skripte: [`scripts/python/statistik/README.md`](scripts/python/statistik/README.md)
+
+```bash
+# Ensemble bei fester Energie (900 Laeufe, ~35 min auf 8 Kernen)
+python3 scripts/python/statistik/run_fixed_energy.py \
+    --outdir results/statistik/ensemble_fest --energies 1300,1800,2400 \
+    --runs 300 --jobs 8
+
+# Schnelluebersicht ueber alle Energien x Clusterdefinitionen (Sekunden)
+.venv-powerlaw/bin/python scripts/python/statistik/analyze_fixed_energy.py \
+    results/statistik/ensemble_fest --outdir results/statistik/fit_fest
+
+# Voller Fit mit Bootstrap und Goodness-of-Fit (Minuten)
+.venv-powerlaw/bin/python scripts/python/statistik/clauset_refit.py \
+    results/statistik/ensemble_fest/E2400/clusters_thr100_link100.csv "E=2400" \
+    --outdir results/statistik/fit_fest --bootstrap 300 --gof 200 --jobs 8
 ```
 
 ---
