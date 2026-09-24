@@ -192,12 +192,22 @@ static int   *cell_next;             /* [N] Zeiger auf naechstes Atom in Kette  
  * ---------------------------------------------------------------------------
  *  E_broken: Wenn eine Feder reisst, geht ihre potenzielle Energie nicht
  *  einfach "verloren".  Sie wird in E_broken akkumuliert.  Damit gilt:
- *     E_total = E_kin + E_spring + E_rep + E_broken = const  (ohne Daempfung)
+ *     E_total = E_kin + E_spring + E_rep + E_broken (+ E_damp) = const
+ *  E_damp ist die an die Elektronen abgegebene Energie (nur wenn DAMPING > 0).
  *  Das ist der physikalisch korrekte Erhaltungssatz!
  * ========================================================================== */
 static double E_broken = 0.0;        /* Kumulierte verlorene Bindungsenergie      */
-static double E_damp   = 0.0;        /* Kumulierte Daempfungsarbeit (derzeit unused)*/
+static double E_damp   = 0.0;        /* An Elektronen abgegebene Energie (Daempfung) */
+static double P_damp   = 0.0;        /* Momentane Bremsleistung sum(gamma*v^2)      */
+static double E_abs    = 0.0;        /* Vom absorbierenden Rand abgefuehrte Energie */
+static double P_abs    = 0.0;        /* Momentane Leistung des Randes               */
+static double BX0,BX1,BY0,BY1;       /* Gitterausdehnung (fuer den Rand)            */
 static double DAMPING  = 0.0;        /* Daempfungskoeffizient (0 = keine Daempfung)*/
+/* el_stopping = lindhard: DAMPING und V_THRESH aus Lindhard-Scharff berechnen */
+static int    EL_LINDHARD = 0;
+static double EL_CUTOFF_EV= 10.0;    /* keine Bremsung unter E_kin = 10 eV          */
+static double MASS_U      = 183.84;  /* Atommasse [u] (Wolfram)                     */
+static double DENS_A3     = 0.0632;  /* Atomdichte [1/A^3] (Wolfram, 3D)            */
 
 /* ============================================================================
  *  HEALING  (Frenkel-Paar-Rekombination)
@@ -227,7 +237,10 @@ static double   PKA_Y      = 0.5;    /* Rel. y-Startposition des PKA (0..1)     
 static double   PKA_ENERGY = 1000.0; /* Kinetische Startenergie des PKA           */
 static double   PKA_ANGLE  = 15.0;   /* Abschusswinkel in Grad (0=oben, 90=rechts)*/
 static double   PKA_MASS   = 1.0;    /* Masse des PKA (kann von MASS abweichen)   */
-static double   ABSORB_BORDER = 0.0; /* Absorbierende Randzone (Platzhalter)      */
+static double   ABSORB_BORDER = 0.0; /* Breite der absorbierenden Randzone [L0]   */
+static double   ABSORB_GAMMA  = 10.0;/* Reibung am aeusseren Rand (linear von 0)   */
+static double   STOP_EKIN     = 0.0; /* >0: Abbruch, wenn max. E_kin eines Atoms   */
+static double   STOP_TMIN     = 0.0; /*     darunter faellt (fruehestens bei t)    */
 static char     OUT_PREFIX[128] = "run"; /* Dateinamen-Praefix fuer CSV-Ausgaben  */
 static char     MODELSEL[8]     = "A";   /* Modell-Auswahl (nur "A" implementiert) */
 
@@ -342,7 +355,18 @@ static void read_config(const char*fn){
         else if (KV("n_steps"))      NSTEPS=atoi(val);
         else if (KV("damping"))      DAMPING=atof(val);
         else if (KV("v_thresh"))     V_THRESH=atof(val);
+        else if (KV("el_stopping")){
+            if      (!strcmp(val,"lindhard")) EL_LINDHARD=1;
+            else if (!strcmp(val,"none"))     EL_LINDHARD=0;
+            else { fprintf(stderr,"FEHLER: el_stopping=%s unbekannt (none|lindhard)\n",val); exit(1); }
+        }
+        else if (KV("el_cutoff_eV")) EL_CUTOFF_EV=atof(val);
+        else if (KV("mass_u"))       MASS_U=atof(val);
+        else if (KV("dens_A3"))      DENS_A3=atof(val);
         else if (KV("absorb_border"))ABSORB_BORDER=atof(val);
+        else if (KV("absorb_gamma")) ABSORB_GAMMA=atof(val);
+        else if (KV("stop_ekin"))    STOP_EKIN=atof(val);
+        else if (KV("stop_tmin"))    STOP_TMIN=atof(val);
         else if (KV("log_every"))    LOG_EVERY=atoi(val);
         else if (KV("dump_every"))   DUMP_EVERY=atoi(val);
         else if (KV("reorder"))      REORDER=(!strcmp(val,"true")||!strcmp(val,"1"));
@@ -692,14 +716,64 @@ static void compute_forces(void){
      * Schwelle V_THRESH: nur Atome oberhalb dieser Geschwindigkeit werden gedaempft,
      * damit nicht die thermischen Gitterschwingungen abgebremst werden. */
     if(DAMPING>0.0){
+        double pw=0.0;
         for(int p=0;p<N;p++){
-            double v=sqrt(vx[p]*vx[p]+vy[p]*vy[p]);
+            double v2=vx[p]*vx[p]+vy[p]*vy[p];
+            double v=sqrt(v2);
             if(v>V_THRESH){
                 fx[p]-=DAMPING*vx[p];
                 fy[p]-=DAMPING*vy[p];
+                pw+=DAMPING*v2;
             }
         }
+        P_damp=pw;   /* Bremsleistung, fuer die Energiebuchhaltung in step() */
     }
+
+    /* ---------------------------------------------------------------------- */
+    /* (4) ABSORBIERENDER RAND  (nur wenn ABSORB_BORDER > 0)                   */
+    /* ---------------------------------------------------------------------- */
+    /* Im echten Kristall laeuft die Waerme der Kaskade ins unendliche Material
+     * ab.  Hier: Reibung -gamma(d)*v in einer Randschicht der Breite W, gamma
+     * steigt linear von 0 (innen) auf ABSORB_GAMMA (aeusserer Rand).  Der
+     * sanfte Anstieg reflektiert Wellen weniger als eine harte Kante.
+     * d = Abstand der AKTUELLEN Position zum Gitterrand. */
+    if(ABSORB_BORDER>0.0){
+        double pw=0.0, W=ABSORB_BORDER;
+        for(int p=0;p<N;p++){
+            double d=px[p]-BX0, e;
+            e=BX1-px[p]; if(e<d)d=e;
+            e=py[p]-BY0; if(e<d)d=e;
+            e=BY1-py[p]; if(e<d)d=e;
+            if(d>=W) continue;
+            double g=ABSORB_GAMMA*(d<0? 1.0 : (W-d)/W);
+            fx[p]-=g*vx[p]; fy[p]-=g*vy[p];
+            pw+=g*(vx[p]*vx[p]+vy[p]*vy[p]);
+        }
+        P_abs=pw;
+    }
+}
+
+/* ============================================================================
+ *  LINDHARD-SCHARFF  (elektronische Bremsung, el_stopping = lindhard)
+ * ---------------------------------------------------------------------------
+ *  Bremsquerschnitt (Lindhard & Scharff 1961, Form nach Nastasi et al.,
+ *  "Ion-Solid Interactions", Gl. 5.x):
+ *     S_e = 1.212 Z1^(7/6) Z2 / ((Z1^(2/3)+Z2^(2/3))^(3/2) M1^(1/2)) * sqrt(E/keV)
+ *           in eV / (1e15 Atome/cm^2)  =  10 eV*A^2 pro Einheit
+ *  Bremsvermoegen dE/dx = N * S_e = C * sqrt(E/eV)   [eV/A]
+ *  Mit E = M v^2 / 2 ist dE/dx proportional zu v, also genau die Reibung
+ *  F = -gamma*v des Codes.  In Modelleinheiten (m = 1, L0, eps):
+ *     gamma = C * L0_A / sqrt(2*eps)
+ *     V_THRESH aus E_kin = el_cutoff_eV  ->  v = sqrt(2*cutoff/eps)
+ *  N ist die 3D-Dichte: Das Modell verliert dann pro zurueckgelegter
+ *  Strecke dieselbe Energie wie ein Atom im echten Wolfram.
+ * ========================================================================== */
+static void lindhard_setup(void){
+    double Z=ZBL_Z, z23=pow(Z,2.0/3.0);
+    double k = 1.212*pow(Z,7.0/6.0)*Z / (pow(2.0*z23,1.5)*sqrt(MASS_U)); /* eV/(1e15/cm^2) pro sqrt(keV) */
+    double C = DENS_A3 * 10.0*k / sqrt(1000.0);                        /* eV/A pro sqrt(eV) */
+    DAMPING  = C*ZBL_L0_A/sqrt(2.0*EPS_EV);
+    V_THRESH = sqrt(2.0*EL_CUTOFF_EV/EPS_EV);
 }
 
 /* ============================================================================
@@ -810,7 +884,11 @@ static void step(double dt){
     /* (4) Healing pruefen (muss vor Kraftberechnung passieren) */
     heal_bonds();
     /* (5) Neue Kraefte aus aktualisierten Positionen */
+    double p_old=P_damp, pa_old=P_abs;
     compute_forces();
+    /* An Elektronen / den Rand abgegebene Energie: Trapezregel ueber die Leistung */
+    if(DAMPING>0.0)       E_damp+=0.5*dt*(p_old+P_damp);
+    if(ABSORB_BORDER>0.0) E_abs +=0.5*dt*(pa_old+P_abs);
     /* (6) Zweiter halber Kick mit den neuen Kraeften */
     for(int p=0;p<N;p++){
         vx[p]+=0.5*dt*fx[p]/mass[p];
@@ -982,6 +1060,7 @@ int main(int argc, char**argv){
         }
         zbl_setup(&ZBL,ZBL_Z,ZBL_L0_A,EPS_EV,ZBL_RS1,ZBL_RS2);
     }
+    if(EL_LINDHARD) lindhard_setup();
     if(DT_ADAPT && T_MAX<=0.0){
         fprintf(stderr,"FEHLER: dt_adapt=true braucht t_max > 0.\n");
         return 1;
@@ -991,6 +1070,12 @@ int main(int argc, char**argv){
     build_lattice();
     /* Anfangs-Nachbarzahl speichern (Randatome haben weniger als 6) */
     nbr0=malloc(N*sizeof*nbr0); memcpy(nbr0,n_nbr,N*sizeof*nbr0);
+    /* Gitterausdehnung fuer den absorbierenden Rand */
+    BX0=BY0=1e30; BX1=BY1=-1e30;
+    for(int p=0;p<N;p++){
+        if(px[p]<BX0)BX0=px[p]; if(px[p]>BX1)BX1=px[p];
+        if(py[p]<BY0)BY0=py[p]; if(py[p]>BY1)BY1=py[p];
+    }
     cell_setup();
     cell_build();
     compute_forces();
@@ -1004,7 +1089,7 @@ int main(int argc, char**argv){
     /* Startenergie messen (Referenz fuer Drift-Check) */
     double ek,es,er,e0=0;
     energies(&ek,&es,&er);
-    e0 = ek+es+er+E_broken;
+    e0 = ek+es+er+E_broken+E_damp+E_abs;
 
     /* Simulationsparameter auf stdout ausgeben */
     printf("# Modell A | Config: %s\n",cfg);
@@ -1043,10 +1128,17 @@ int main(int argc, char**argv){
     for(int s=0;;s++){
         double ts = DT_ADAPT? t : s*DT;
         int last = DT_ADAPT? (t>=T_MAX || s>=NSTEPS) : (s>=NSTEPS);
+        /* Fruehabbruch: kein Atom hat mehr genug Energie, um etwas zu veraendern */
+        int stopped = 0;
+        if(STOP_EKIN>0.0 && t>=STOP_TMIN && !last && s%100==0){
+            double em=0;
+            for(int p=0;p<N;p++){ double e=0.5*mass[p]*(vx[p]*vx[p]+vy[p]*vy[p]); if(e>em)em=e; }
+            if(em<STOP_EKIN){ last=1; stopped=1; }
+        }
         /* Energie ausgeben und Drift pruefen (adaptiv: letzter Schritt immer) */
-        if(s%logevery==0 || (DT_ADAPT && last)){
+        if(s%logevery==0 || ((DT_ADAPT||stopped) && last)){
             energies(&ek,&es,&er);
-            double et=ek+es+er+E_broken;
+            double et=ek+es+er+E_broken+E_damp+E_abs;  /* + an Elektronen, an den Rand */
             double drift = (e0!=0)? 100.0*(et-e0)/fabs(e0) : 0.0;
             printf("%6d %8.3f %10.3f %10.3f %10.3f %10.3f %11.3f %8.4f\n",
                    s, ts, ek,es,er,E_broken,et,drift);
@@ -1056,7 +1148,9 @@ int main(int argc, char**argv){
         /* Animations-Frame speichern */
         if(fxyz && s%DUMP_EVERY==0) dump_frame(fxyz, ts);
         if(last){
-            if(DT_ADAPT && t<T_MAX)
+            if(stopped)
+                printf("# FRUEHABBRUCH bei t=%.4f (Schritt %d): max. E_kin < %g\n",t,s,STOP_EKIN);
+            else if(DT_ADAPT && t<T_MAX)
                 fprintf(stderr,"WARNUNG: n_steps=%d erreicht bei t=%.4f < t_max=%.4f\n",NSTEPS,t,T_MAX);
             break;
         }
@@ -1070,6 +1164,12 @@ int main(int argc, char**argv){
 
     /* Ergebnis: Anzahl gerissener Bindungen */
     int nbroken=0; for(int b=0;b<n_bonds;b++) if(!bond_intact[b]) nbroken++;
+    if(ABSORB_BORDER>0.0)
+        printf("# RAND E_abs=%.4f (%.2f%% von E0) breite=%.2f gamma=%.3g\n",
+               E_abs, e0!=0? 100.0*E_abs/fabs(e0) : 0.0, ABSORB_BORDER, ABSORB_GAMMA);
+    if(DAMPING>0.0)
+        printf("# ELEKTRONEN E_elec=%.4f (%.2f%% von E0) gamma=%.5g v_thresh=%.4g\n",
+               E_damp, e0!=0? 100.0*E_damp/fabs(e0) : 0.0, DAMPING, V_THRESH);
     printf("# RESULT broken_bonds=%d total_bonds=%d healing=%d seed=%u\n",
            nbroken,n_bonds,HEALING,SEED);
 

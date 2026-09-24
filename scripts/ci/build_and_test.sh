@@ -9,6 +9,8 @@
 #   5. MPI-Smoke: 2 Ranks laufen ohne Absturz, geben RESULT aus
 #   6. ZBL-Streutest: Zwei-Koerper-Streuung gegen die klassische Theorie
 #   7. ZBL im Gitter: Energieerhaltung mit adaptivem Zeitschritt bei E = 10^4
+#   8. Elektronische Bremsung (Lindhard): E_total + E_elec bleibt erhalten,
+#      und es wird ueberhaupt Energie abgegeben
 #
 # Lokal ausfuehrbar:  bash scripts/ci/build_and_test.sh
 set -euo pipefail
@@ -20,12 +22,12 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 
-echo "== [1/7] Kompilieren =="
+echo "== [1/8] Kompilieren =="
 gcc -O2 -o cascade_serial "$ROOT/src/cascade_serial.c" -lm
 mpicc -O2 -o mpi_cascade  "$ROOT/src/mpi_cascade.c"    -lm
 echo "   ok: seriell + MPI gebaut"
 
-echo "== [2/7] Energieerhaltung =="
+echo "== [2/8] Energieerhaltung =="
 out1="$(./cascade_serial "$CFG")"
 drift="$(printf '%s\n' "$out1" | awk '/^ *[0-9]/{d=$NF} END{print d+0}')"
 echo "   drift% = $drift  (Grenze +/-$DRIFT_MAX)"
@@ -33,7 +35,7 @@ awk -v d="$drift" -v m="$DRIFT_MAX" 'BEGIN{ if (d<0) d=-d; exit !(d<m) }' \
   || { echo "   FEHLER: Energiedrift zu gross"; exit 1; }
 echo "   ok"
 
-echo "== [3/7] Determinismus =="
+echo "== [3/8] Determinismus =="
 bb1="$(printf '%s\n' "$out1" | grep -oE 'broken_bonds=[0-9]+' | head -1)"
 out2="$(./cascade_serial "$CFG")"
 bb2="$(printf '%s\n' "$out2" | grep -oE 'broken_bonds=[0-9]+' | head -1)"
@@ -41,12 +43,12 @@ echo "   Lauf1: $bb1 | Lauf2: $bb2"
 [ "$bb1" = "$bb2" ] || { echo "   FEHLER: nicht deterministisch"; exit 1; }
 echo "   ok"
 
-echo "== [4/7] Sanity (broken_bonds > 0) =="
+echo "== [4/8] Sanity (broken_bonds > 0) =="
 n="${bb1#broken_bonds=}"
 [ "${n:-0}" -gt 0 ] || { echo "   FEHLER: keine gerissenen Bindungen"; exit 1; }
 echo "   ok: $n gerissene Bindungen"
 
-echo "== [5/7] MPI-Smoke (2 Ranks) =="
+echo "== [5/8] MPI-Smoke (2 Ranks) =="
 # CI-Container laufen als root -> --allow-run-as-root; --oversubscribe fuer <2 Slots
 mout="$(mpirun --allow-run-as-root --oversubscribe -np 2 ./mpi_cascade "$CFG" 2>&1)"
 printf '%s\n' "$mout" | grep -q 'RESULT' \
@@ -54,13 +56,13 @@ printf '%s\n' "$mout" | grep -q 'RESULT' \
 printf '%s\n' "$mout" | grep -oE 'RESULT.*'
 echo "   ok"
 
-echo "== [6/7] ZBL-Streutest =="
+echo "== [6/8] ZBL-Streutest =="
 gcc -O2 -I"$ROOT/src" -o zbl_scatter "$ROOT/scripts/ci/zbl_scatter_test.c" -lm
 ./zbl_scatter > zbl_scatter.out || { cat zbl_scatter.out; exit 1; }
 tail -1 zbl_scatter.out
 echo "   ok"
 
-echo "== [7/7] ZBL im Gitter: Energieerhaltung (adaptiver Zeitschritt) =="
+echo "== [7/8] ZBL im Gitter: Energieerhaltung (adaptiver Zeitschritt) =="
 cat > zbl.ini <<'EOF'
 [grid]
 NX = 80
@@ -84,6 +86,16 @@ drift3="$(printf '%s\n' "$out3" | awk '/^ *[0-9]/{d=$NF} END{print d+0}')"
 echo "   drift% = $drift3  (Grenze +/-$DRIFT_MAX)"
 awk -v d="$drift3" -v m="$DRIFT_MAX" 'BEGIN{ if (d<0) d=-d; exit !(d<m) }' \
   || { echo "   FEHLER: Energiedrift zu gross"; exit 1; }
+echo "   ok"
+
+echo "== [8/8] Elektronische Bremsung: Energiebilanz =="
+sed 's/^out_prefix = zbl/out_prefix = zbl_el\nel_stopping = lindhard/' zbl.ini > zbl_el.ini
+out4="$(./cascade_serial zbl_el.ini)"
+drift4="$(printf '%s\n' "$out4" | awk '/^ *[0-9]/{d=$NF} END{print d+0}')"
+elec="$(printf '%s\n' "$out4" | grep -oE 'E_elec=[0-9.]+' | cut -d= -f2)"
+echo "   drift% = $drift4  E_elec = ${elec:-fehlt}"
+awk -v d="$drift4" -v m="$DRIFT_MAX" -v e="${elec:-0}" 'BEGIN{ if (d<0) d=-d; exit !(d<m && e>0) }' \
+  || { echo "   FEHLER: Energiebilanz mit Bremsung verletzt oder keine Bremsung"; exit 1; }
 echo "   ok"
 
 echo "== Alle Physik-Smoke-Tests bestanden =="
