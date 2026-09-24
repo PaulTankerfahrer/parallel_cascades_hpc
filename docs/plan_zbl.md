@@ -151,28 +151,53 @@ zu exakt 0 aus, die Simulation stand dann still. Stabil ist 2Δx/(v + √(v² + 
 reine ZBL-Wand bei 0,6 L0 nur ~2 Einheiten hoch. Ob das für die dichte Endphase
 reicht, zeigt sich an E_d und am Endzustand.
 
-## Phase 2: Kalibrierung der Energieskala
+## Phase 2: Kalibrierung der Energieskala (in Arbeit, Entscheidung offen)
 
-- [ ] E_d im Modell messen: PKA-Energie in kleinen Schritten erhöhen, für ca. 20
-      Richtungen. E_d ist die kleinste Energie, bei der ein stabiles
-      Frenkel-Paar übrig bleibt (mit Healing an).
-- [ ] Energieeinheit festlegen: ε = 90 eV / E_d,Modell. Daraus A für ZBL.
-      **Achtung, Zirkularität:** E_d hängt selbst leicht vom ZBL-Anteil ab.
-      → 1–2 Iterationen, bis ε stabil ist.
-- [ ] Plausibilitätscheck: Schallgeschwindigkeit bzw. Debye-Frequenz im Modell,
-      mit ε umgerechnet, gegen W vergleichen (c_W ≈ 5,2 km/s). Nicht als Anker,
-      nur als Größenordnungskontrolle. Das Federmodell ist kein W-Potenzial.
+Werkzeuge: `scripts/python/zbl/kalibrierung_ed.py` (P(E)-Scan, 31 Richtungen × 41
+Energien, Wigner-Seitz-Defekte über `defekte.py`), `fig_p_von_e.py`.
+Ergebnisse: `results/zbl/kalibrierung/ergebnis.md`, Abbildung `results/images/D2_p_von_e.png`.
 
-## Phase 3: Elektronische Bremsung
+- [x] **Erster Versuch, Iteration mit „erster Energie mit Defekt“ je Richtung:**
+      ε = 1,3 → 0,368 → 0,415 → 0,397 → 0,332. Das pendelt, die Richtungsmaxima
+      springen zwischen 370 und 574, weil die erste Schwelle chaotisch auf kleine
+      Potenzialänderungen reagiert. Abgebrochen.
+- [x] **P(E)-Scan** bei ε = 0,3 / 0,4 / 0,5, dazu ZBL + r⁻¹² und das alte Modell.
+      Befund: P(E) ist zweigeteilt (Plateau P ≈ 0,5 zwischen ~180 und ~550 Einheiten).
+      Die Definition des mittleren E_d verschiebt ε deshalb um den Faktor ~3
+      (0,21 / 0,40 / 0,6). E_d in Einheiten hängt nur schwach von ε ab
+      (∫(1 − P): 408 / 382 / 365), wird also vom Federgitter bestimmt, nicht von ZBL.
+- [x] Schallgeschwindigkeit: c_L = 7,7·√ε, c_T = 4,4·√ε km/s. Das passt zu W bei
+      ε ≈ 0,43–0,46.
+- [x] ZBL + r⁻¹² (`zbl_keep_r12`) erhöht E_d nur um ~20 %. Die r⁻¹²-Wand bleibt aus.
+- [ ] **Offen, Entscheidung nötig: Die Bindungen sind 5–13× zu schwach.**
+      Kohäsionsenergie im Modell 3,4 Einheiten = 0,7–2,0 eV, W: 8,9 eV. Die Wärme
+      der Kaskade reißt dann großflächig Bindungen auf (Test 120², E = 10⁴, t = 20:
+      10 % aller Bindungen gerissen). Das würde die Clusterstatistik dominieren und
+      große Energien auf dem Laptop unmöglich machen (Energie pro Atom in der Box).
+      Vorschlag: MAX_STRETCH anheben (≈ 1,33–1,39 für die W-Kohäsionsenergie bei
+      ε ≈ 0,4), ε über die Schallgeschwindigkeit festlegen und E_d als Kontrolle
+      nachmessen.
 
-Die vorhandene Implementierung F = −γ·v für v > v_thresh hat schon die
-Lindhard-Scharff-Form (S_e ∝ v).
-- [ ] γ aus dem Lindhard-Scharff-Koeffizienten für W→W bestimmen und in
-      Modelleinheiten umrechnen.
-- [ ] v_thresh entsprechend E_kin ≈ 10 eV setzen (übliche Konvention).
-      Darunter wirkt die Bremsung nicht auf die thermische Phase.
-- [ ] Test: Anteil der elektronisch verlorenen Energie über E. Mit der
-      Lindhard-Partition (Damage Energy) vergleichen.
+## Phase 3: Elektronische Bremsung (erledigt 2026-09-24)
+
+Die vorhandene Reibung F = −γ·v für v > v_thresh hat die Lindhard-Scharff-Form
+(S_e ∝ √E ∝ v).
+- [x] `el_stopping = lindhard` berechnet γ und v_thresh aus Z, M (`mass_u`),
+      3D-Dichte (`dens_A3` = 0,0632 Å⁻³), L0 und ε:
+      S_e = 1,212·Z^(7/6)·Z / ((2·Z^(2/3))^(3/2)·√M) · √(E/keV) in eV/(10¹⁵ Atome/cm²),
+      dE/dx = N·S_e = 0,0958·√(E/eV) eV/Å für W→W, γ = C·L0/√(2ε).
+      Mit der 3D-Dichte verliert ein Atom pro Strecke so viel wie in echtem W.
+- [x] v_thresh aus `el_cutoff_eV` = 10 eV.
+- [x] **Energiebuchhaltung:** `E_damp` war bisher unbenutzt, die Drift-Kontrolle
+      mit Dämpfung also blind. Jetzt wird die Bremsleistung Σγv² pro Schritt per
+      Trapezregel integriert und zu E_total addiert. Ausgabe:
+      `# ELEKTRONEN E_elec=... (x % von E0)`.
+- [x] Test: 120×120, E = 20 000, ε = 1,3, t = 0,5: E_total + E_elec auf
+      0,024 % erhalten, 11,6 % an Elektronen. CI-Stufe 8. Ohne Bremsung ist das
+      r12-Modell weiter byte-identisch.
+- [ ] Anteil der elektronisch verlorenen Energie über E gegen die
+      Lindhard-Partition (Damage Energy) vergleichen. Kommt mit den Pilotläufen
+      (Phase 4), dafür braucht es ausgelaufene Kaskaden auf großem Gitter.
 
 ## Phase 4: Pilotläufe, dann Boxgröße festlegen
 
@@ -204,11 +229,16 @@ Nicht die Box raten, sondern messen:
 - [ ] Messen: Ausdehnung der Schadenszone, Anzahl Subkaskaden, Laufzeit,
       Simulationszeit bis zum Abklingen, Energieerhaltung.
 - [ ] Box so festlegen, dass die größte Kaskade ≥ 20 % Abstand zum Rand hat.
-- [ ] **Absorbierender Rand:** `absorb_border` ist ein Platzhalter. Eine
-      gedämpfte Randschicht (Langevin oder linear ansteigende Reibung) einbauen,
-      damit die Druckwelle nicht vom freien Rand zurückläuft. Wird bei großen
-      Energien nötig.
-- [ ] Frühabbruch-Kriterium einbauen und prüfen (gleiches Endergebnis wie Volllauf).
+- [x] **Absorbierender Rand** (`absorb_border` = Breite, `absorb_gamma`): Reibung
+      in einer Randschicht, linear von 0 auf γ ansteigend. Die abgeführte Energie
+      wird als `E_abs` verbucht (Bilanz 0,16 % bei 120², E = 10⁴, t = 20).
+      **Pflicht, nicht optional:** Ohne Wärmesenke heizt die Kaskade die ganze Box
+      auf. Bei 150 keV und 700² wären es 0,77 Einheiten pro Atom, fast eine
+      Bindungsenergie.
+- [x] Frühabbruch eingebaut: `stop_ekin` (max. E_kin eines Atoms), `stop_tmin`.
+- [ ] Frühabbruch prüfen: gleiches Endergebnis wie Volllauf.
+- [ ] Obergrenze `dt` für die thermische Phase anheben (bisher 3·10⁻⁴, Federn
+      vertragen ~2·10⁻³). Das spart bis zu Faktor 7 an Schritten.
 - [ ] Laufzeitbudget aus den Pilotläufen neu hochrechnen. Produktion so zuschneiden,
       dass sie in ≲ 1–2 Nächten durchläuft.
 
