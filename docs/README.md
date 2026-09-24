@@ -4,6 +4,8 @@
 |---|---|
 | [`projektstand.md`](projektstand.md) | Kompakter Gesamtstand: Kontext, alle Befunde mit Zahlen, offene Punkte. Zum Wiedereinstieg gedacht. |
 | [`clauset_glossar.md`](clauset_glossar.md) | Alle Fachbegriffe der Potenzgesetz-Analyse erklärt: MLE, x_min, Bootstrap, Goodness-of-Fit, Likelihood-Ratio-Test. |
+| [`plan_zbl.md`](plan_zbl.md) | Plan und Fortschritt: energieabhängiger Wirkungsquerschnitt (ZBL), elektronische Bremsung, Kalibrierung auf Wolfram, große Gitter. |
+| [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md) | Im alten Modell fliegen Atome mit E > ~200 durch ihre gebundenen Nachbarn hindurch. Ursache, Messung, Folgen für die bisherigen Ergebnisse, Korrektur. |
 
 ## Die Befunde selbst
 

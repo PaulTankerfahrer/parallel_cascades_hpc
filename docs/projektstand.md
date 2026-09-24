@@ -1,6 +1,6 @@
 # Projektstand: Kollisionskaskaden-HPC — Kontext für einen neuen Chat
 
-*Stand: 2026-09-02. Zum Einfügen als Kontext am Anfang einer neuen Sitzung.*
+*Stand: 2026-09-24. Zum Einfügen als Kontext am Anfang einer neuen Sitzung.*
 
 ---
 
@@ -113,6 +113,35 @@ konsistent mit der geringeren Konnektivität in zwei Dimensionen.
 
 ---
 
+### Teil 3 — Modellfehler: gebundene Nachbarn sind durchlässig (2026-09-24)
+
+Ausführlich: [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md).
+
+Im bisherigen Modell wirkt die r⁻¹²-Abstoßung nur zwischen **ungebundenen** Paaren.
+Gebundene Nachbarn spüren nur ihre harmonische Feder, deren Energie bei r = 0 auf
+½·K·L0² = 50 begrenzt ist. Gemessen: Ab E ≈ 163 erreicht ein frontal anfliegendes
+Atom den Ort seines Nachbarn, ab E ≈ 198 fliegt es ganz hindurch. Schräg folgt
+es der geraden Linie auf drei Stellen genau, wird also gar nicht abgelenkt. Die
+erste Nachbarschale ist für jedes schnelle Atom unsichtbar. Die Energie bleibt
+dabei erhalten, deshalb hat die CI das nie bemerkt.
+
+Folgen: Teil 1 (Sampling-Artefakt) und die Abhängigkeit von der Clusterdefinition
+gelten weiter. Absolute S-Werte bei fester Energie und der Sand-Vergleich sind
+für ein reales Material nicht belastbar.
+
+### Teil 4 — Umbau: ZBL-Potenzial (in Arbeit)
+
+Plan und Fortschritt: [`plan_zbl.md`](plan_zbl.md). Kurz: Die Abstoßung wird
+durch das abgeschirmte Coulomb-Potenzial (ZBL, Wolfram) für **alle** Paare
+ersetzt. Der Wirkungsquerschnitt schrumpft damit mit der Energie
+(r_min = 0,39 → 0,20 → 0,087 L0 bei E = 10² → 10³ → 10⁴). Dazu kommen ein
+adaptiver Zeitschritt, elektronische Bremsung, die Kalibrierung der Energieeinheit
+über E_d = 90 eV und größere Gitter (Ziel 700², nur Laptop, nur serielle Version).
+Erledigt: Phase 0 und 1. Das alte Modell bleibt als `rep_model = r12` byte-identisch
+erhalten.
+
+---
+
 ## Zwei Werkzeugfallen
 
 - **`powerlaw` klemmt `alpha` bei 3.** `DEFAULT_PARAMETER_RANGES = {'alpha': [0, 3]}`
@@ -159,6 +188,10 @@ python3 scripts/python/statistik/run_fixed_energy.py \
 ---
 
 ## Offene Punkte
+
+0. **ZBL-Umbau fortsetzen:** Phase 2 (Kalibrierung) bis 6, siehe `plan_zbl.md`.
+   Folie mit der Kraftkurve (`fig_force_law.py`, P2_kraft.png) zeigt die r⁻¹²-Wand
+   auch zwischen gebundenen Nachbarn. So hat der Code nie gerechnet.
 
 1. **Folie 9** (`Das physikalische Ergebnis: ein Potenzgesetz`) ist an drei Stellen
    widerlegt und noch nicht angepasst: „S ≈ 1,4, robust, 1,36 vs. 1,39"; „skalenfrei /
