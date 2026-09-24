@@ -33,6 +33,13 @@
  *      Normiert auf F(RCUT) = 0.  Gibt Atomen einen effektiven "Radius",
  *      damit das PKA beim Einschlag tatsaechlich auf andere Atome trifft.
  *      Ohne diese Kraft wuerden sich nicht-gebundene Atome einfach durchdringen.
+ *      ACHTUNG: GEBUNDENE Paare spueren diese Wand nicht, nur die Feder, und
+ *      deren Energie ist auf 0.5*K*L0^2 = 50 begrenzt.  Atome mit E > ~200
+ *      fliegen daher durch ihre gebundenen Nachbarn hindurch
+ *      (docs/befund_gebundene_nachbarn.md).
+ *
+ *      rep_model = zbl ersetzt (2) durch die ZBL-Abstossung fuer ALLE Paare,
+ *      auch gebundene (potential.h, docs/plan_zbl.md).  Standard bleibt r12.
  *
  *  ENERGIEERHALTUNG  (Korrektheitsbeweis)
  *  ----------------------------------------
@@ -67,6 +74,7 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include "potential.h"
 
 /* ============================================================================
  *  PHYSIKALISCHE PARAMETER
@@ -88,6 +96,15 @@ static double MAX_STRETCH = 1.15;    /* Bruchbedingung: Feder reisst bei r > L0*
 static double RCUT        = 0.9;     /* Abstoss-Reichweite (MUSS kleiner als L0 sein!)*/
 static double K_REP       = 400.0;   /* Amplitude der repulsiven Kraft             */
 static double REP_N       = 12.0;    /* Steilheitsexponent (n=12: sehr harter Kern) */
+static int    REP_MODEL   = REP_R12; /* Abstossungsmodell: r12 (alt) | zbl          */
+/* ZBL-Parameter (nur rep_model=zbl), physikalische Groessen fuer Wolfram */
+static double ZBL_Z       = 74.0;    /* Kernladungszahl (W)                        */
+static double ZBL_L0_A    = 2.74;    /* L0 in Angstrom (Nachbarabstand W)          */
+static double EPS_EV      = 10.0;    /* eV pro Modell-Energieeinheit (Phase 2!)    */
+static double ZBL_RS1     = 0.50;    /* Beginn der Abschaltung [L0]                */
+static double ZBL_RS2     = 0.85;    /* Ende der Abschaltung [L0], muss <= RCUT     */
+static int    ZBL_KEEP_R12= 0;       /* 1 -> r^-12-Wand zusaetzlich (ungebunden)    */
+static ZblParams ZBL;                /* abgeleitete Parameter (zbl_setup)          */
 static double V_THRESH    = 1e30;    /* Schwelle fuer el. Stopping (1e30 = inaktiv) */
 
 /* ============================================================================
@@ -202,6 +219,9 @@ static unsigned SEED       = 1;      /* Seed fuer reproduzierbare RNG-Sequenz   
 static int      LOG_EVERY  = 0;      /* 0 -> auto (NSTEPS/40), >0 -> explizit     */
 static int      DUMP_EVERY = 0;      /* 0 -> kein XYZ-Dump, >0 -> alle N Schritte */
 static int      REORDER    = 0;      /* 1 -> Morton-Sortierung (Cache-Optimierung) */
+static int      DT_ADAPT   = 0;      /* 1 -> adaptiver Zeitschritt, DT = Obergrenze */
+static double   DX_MAX     = 0.0025; /* max. Weg pro Schritt [L0] (nur DT_ADAPT)   */
+static double   T_MAX      = 0.0;    /* Simulationsdauer bei DT_ADAPT (Pflicht)    */
 static double   PKA_X      = 0.5;    /* Rel. x-Startposition des PKA (0..1)      */
 static double   PKA_Y      = 0.5;    /* Rel. y-Startposition des PKA (0..1)      */
 static double   PKA_ENERGY = 1000.0; /* Kinetische Startenergie des PKA           */
@@ -298,6 +318,20 @@ static void read_config(const char*fn){
         else if (KV("RCUT"))         RCUT=atof(val);
         else if (KV("K_REP"))        K_REP=atof(val);
         else if (KV("REP_N"))        REP_N=atof(val);
+        else if (KV("rep_model")){
+            if      (!strcmp(val,"r12")) REP_MODEL=REP_R12;
+            else if (!strcmp(val,"zbl")) REP_MODEL=REP_ZBL;
+            else { fprintf(stderr,"FEHLER: rep_model=%s unbekannt (r12|zbl)\n",val); exit(1); }
+        }
+        else if (KV("zbl_Z"))        ZBL_Z=atof(val);
+        else if (KV("zbl_L0_A"))     ZBL_L0_A=atof(val);
+        else if (KV("eps_eV"))       EPS_EV=atof(val);
+        else if (KV("zbl_rs1"))      ZBL_RS1=atof(val);
+        else if (KV("zbl_rs2"))      ZBL_RS2=atof(val);
+        else if (KV("zbl_keep_r12")) ZBL_KEEP_R12=(!strcmp(val,"true")||!strcmp(val,"1"));
+        else if (KV("dt_adapt"))     DT_ADAPT=(!strcmp(val,"true")||!strcmp(val,"1"));
+        else if (KV("dx_max"))       DX_MAX=atof(val);
+        else if (KV("t_max"))        T_MAX=atof(val);
         else if (KV("pka_x"))        PKA_X=atof(val);
         else if (KV("pka_y"))        PKA_Y=atof(val);
         else if (KV("pka_energy"))   PKA_ENERGY=atof(val);
@@ -526,8 +560,8 @@ static void cell_build(void){
 /* ============================================================================
  *  ABSTOSS-KRAFT UND -POTENTIAL  (isoliert, leicht austauschbar)
  * ---------------------------------------------------------------------------
- *  Diese beiden Funktionen sind bewusst herausgezogen: man kann spaeter
- *  Morse- oder Lennard-Jones-Potenzial als Drop-in-Ersatz einsetzen.
+ *  Die eigentlichen Formeln stehen in potential.h (gemeinsam nutzbar fuer
+ *  Serial/MPI/CUDA); hier nur duenne Wrapper mit den globalen Parametern.
  *
  *  rep_force(r): Kraftbetrag (positiv = abstossend) fuer Abstand r < RCUT.
  *    F(r) = K_REP * ((RCUT/r)^REP_N - 1)
@@ -537,12 +571,31 @@ static void cell_build(void){
  *  rep_pot(r): Potenzial mit V(RCUT)=0 (Stammfunktion von -F, normiert).
  *    Wird nur fuer die Energiebuchhaltung benoetigt, NICHT fuer die Kraft.
  * ========================================================================== */
-static inline double rep_force(double r){
-    return K_REP * ( pow(RCUT/r, REP_N) - 1.0 );
+static inline double rep_force(double r){ return r12_force(r, RCUT, K_REP, REP_N); }
+static inline double rep_pot(double r)  { return r12_pot  (r, RCUT, K_REP, REP_N); }
+
+/* Paar-Abstossung fuer ein Paar mit 0 < r2 < RCUT^2, je nach rep_model.
+ *   r12: nur ungebundene Paare (bisheriges Verhalten, bitgleich).
+ *   zbl: ALLE Paare, auch gebundene -- sonst fliegen schnelle Atome durch
+ *        ihre Bindungsnachbarn hindurch (docs/plan_zbl.md, Phase 0).
+ * pair_fr() liefert 0, wenn keine Kraft wirkt, sonst 1 und *fr = F(r)/r. */
+static inline int pair_fr(int p, int q, double r2, double*fr){
+    double r=sqrt(r2);
+    if(REP_MODEL==REP_R12){
+        if(is_bonded(p,q)) return 0;
+        *fr=rep_force(r)/r; return 1;
+    }
+    double f = zbl_force(&ZBL,r);
+    if(ZBL_KEEP_R12 && !is_bonded(p,q)) f += rep_force(r);
+    if(f==0.0) return 0;
+    *fr=f/r; return 1;
 }
-static inline double rep_pot(double r){
-    double n=REP_N;
-    return K_REP * ( (RCUT - pow(RCUT,n)*pow(r,1.0-n))/(1.0-n) - (RCUT - r) );
+static inline double pair_pot(int p, int q, double r2){
+    double r=sqrt(r2);
+    if(REP_MODEL==REP_R12) return is_bonded(p,q)? 0.0 : rep_pot(r);
+    double e = zbl_pot(&ZBL,r);
+    if(ZBL_KEEP_R12 && !is_bonded(p,q)) e += rep_pot(r);
+    return e;
 }
 
 /* ============================================================================
@@ -610,8 +663,7 @@ static void compute_forces(void){
                 double dx=px[p]-px[q], dy=py[p]-py[q];
                 double r2=dx*dx+dy*dy;
                 if(r2>=rc2||r2==0.0) continue;  /* zu weit oder gleich */
-                if(is_bonded(p,q)) continue;     /* gebunden -> Feder wirkt, keine Abstossung */
-                double r=sqrt(r2), f=rep_force(r)/r;
+                double f; if(!pair_fr(p,q,r2,&f)) continue;  /* r12: gebunden -> nur Feder */
                 fx[p]+=f*dx; fy[p]+=f*dy;   /* p: von q weggedruckt */
                 fx[q]-=f*dx; fy[q]-=f*dy;   /* q: von p weggedruckt (Newton 3) */
             }
@@ -624,8 +676,7 @@ static void compute_forces(void){
                     double dx=px[p]-px[q], dy=py[p]-py[q];
                     double r2=dx*dx+dy*dy;
                     if(r2>=rc2||r2==0.0) continue;
-                    if(is_bonded(p,q)) continue;
-                    double r=sqrt(r2), f=rep_force(r)/r;
+                    double f; if(!pair_fr(p,q,r2,&f)) continue;
                     fx[p]+=f*dx; fy[p]+=f*dy;
                     fx[q]-=f*dx; fy[q]-=f*dy;
                 }
@@ -680,16 +731,16 @@ static void energies(double*ek, double*es, double*er){
         for(int p=cell_head[c];p!=-1;p=cell_next[p]){
             for(int q=cell_next[p];q!=-1;q=cell_next[q]){
                 double dx=px[p]-px[q],dy=py[p]-py[q],r2=dx*dx+dy*dy;
-                if(r2>=rc2||r2==0.0)continue; if(is_bonded(p,q))continue;
-                sr+=rep_pot(sqrt(r2));
+                if(r2>=rc2||r2==0.0)continue;
+                sr+=pair_pot(p,q,r2);
             }
             for(int o=0;o<4;o++){int nxc=cx+off[o][0],nyc=cy+off[o][1];
                 if(nxc<0||nxc>=ncx||nyc<0||nyc>=ncy)continue;
                 int nc=nyc*ncx+nxc;
                 for(int q=cell_head[nc];q!=-1;q=cell_next[q]){
                     double dx=px[p]-px[q],dy=py[p]-py[q],r2=dx*dx+dy*dy;
-                    if(r2>=rc2||r2==0.0)continue; if(is_bonded(p,q))continue;
-                    sr+=rep_pot(sqrt(r2));
+                    if(r2>=rc2||r2==0.0)continue;
+                    sr+=pair_pot(p,q,r2);
                 }
             }
         }
@@ -765,6 +816,31 @@ static void step(double dt){
         vx[p]+=0.5*dt*fx[p]/mass[p];
         vy[p]+=0.5*dt*fy[p]/mass[p];
     }
+}
+
+/* ============================================================================
+ *  ADAPTIVER ZEITSCHRITT  (nur wenn DT_ADAPT=1)
+ * ---------------------------------------------------------------------------
+ *  ZBL ist bei kleinen Abstaenden sehr steil, und schnelle Atome kommen sich
+ *  sehr nahe.  Ein fester Zeitschritt waere entweder zu gross (Energiefehler
+ *  beim Stoss) oder fuer die ganze Laufzeit zu klein.  Ueblich in Kaskaden-MD:
+ *  dt so waehlen, dass kein Atom pro Schritt weiter als DX_MAX kommt:
+ *      v*dt + a/2*dt^2 = DX_MAX   (v, a: Maxima ueber alle Atome)
+ *  DT ist dabei die Obergrenze (thermische Phase, Federschwingungen).
+ *  Benutzt die Kraefte des letzten Schritts (fx, fy sind aktuell).
+ * ========================================================================== */
+static double choose_dt(void){
+    double v2max=0, a2max=0;
+    for(int p=0;p<N;p++){
+        double v2=vx[p]*vx[p]+vy[p]*vy[p];
+        double a2=(fx[p]*fx[p]+fy[p]*fy[p])/(mass[p]*mass[p]);
+        if(v2>v2max)v2max=v2; if(a2>a2max)a2max=a2;
+    }
+    /* Loesung von v*dt + a/2*dt^2 = DX_MAX in der ausloeschungsfreien Form
+     * (die Lehrbuchform (-v+sqrt(v^2+2a dx))/a liefert bei a ~ 1e-13 exakt 0). */
+    double v=sqrt(v2max), a=sqrt(a2max), den=v+sqrt(v*v+2.0*a*DX_MAX);
+    double dt=(den>0)? 2.0*DX_MAX/den : DT;
+    return (dt<DT)? dt : DT;
 }
 
 /* ============================================================================
@@ -899,6 +975,17 @@ int main(int argc, char**argv){
     if(strcmp(MODELSEL,"A")!=0)
         fprintf(stderr,"HINWEIS: model=%s, dieses Binary rechnet Modell A "
                        "(Morse = morse_md).\n",MODELSEL);
+    if(REP_MODEL==REP_ZBL){
+        if(!(ZBL_RS1>0 && ZBL_RS1<ZBL_RS2 && ZBL_RS2<=RCUT)){
+            fprintf(stderr,"FEHLER: es muss 0 < zbl_rs1 < zbl_rs2 <= RCUT gelten.\n");
+            return 1;
+        }
+        zbl_setup(&ZBL,ZBL_Z,ZBL_L0_A,EPS_EV,ZBL_RS1,ZBL_RS2);
+    }
+    if(DT_ADAPT && T_MAX<=0.0){
+        fprintf(stderr,"FEHLER: dt_adapt=true braucht t_max > 0.\n");
+        return 1;
+    }
     srand(SEED);
 
     build_lattice();
@@ -923,8 +1010,13 @@ int main(int argc, char**argv){
     printf("# Modell A | Config: %s\n",cfg);
     printf("# N=%d bonds=%d  NX=%d NY=%d  K_SPRING=%.1f MAX_STRETCH=%.3f\n",
            N,n_bonds,NX,NY,K_SPRING,MAX_STRETCH);
-    printf("# RCUT=%.3f K_REP=%.1f REP_N=%.1f  healing=%d (dist=%.2f vrel=%.2f)\n",
-           RCUT,K_REP,REP_N,HEALING,HEALING_DIST,HEALING_VREL);
+    printf("# rep_model=%s RCUT=%.3f K_REP=%.1f REP_N=%.1f  healing=%d (dist=%.2f vrel=%.2f)\n",
+           REP_MODEL==REP_ZBL?"zbl":"r12",RCUT,K_REP,REP_N,HEALING,HEALING_DIST,HEALING_VREL);
+    if(REP_MODEL==REP_ZBL)
+        printf("# ZBL: Z=%.0f L0=%.3f A eps=%.4g eV | A=%.4g a=%.4g L0 | rs1=%.3f rs2=%.3f keep_r12=%d\n",
+               ZBL_Z,ZBL_L0_A,EPS_EV,ZBL.A,ZBL.a,ZBL_RS1,ZBL_RS2,ZBL_KEEP_R12);
+    if(DT_ADAPT)
+        printf("# dt adaptiv: dt_max=%g dx_max=%g t_max=%g (max. %d Schritte)\n",DT,DX_MAX,T_MAX,NSTEPS);
     printf("# PKA: n=%d (%s) | Default ort=(%.2f,%.2f) E=%.1f angle=%.1f mass=%.2f | dt=%g steps=%d seed=%u\n",
            npka_set, N_MANUAL>0?"manuell":"auto",
            PKA_X,PKA_Y,PKA_ENERGY,PKA_ANGLE,PKA_MASS,DT,NSTEPS,SEED);
@@ -945,21 +1037,33 @@ int main(int argc, char**argv){
 
     /* Haupt-Schleife: 0 bis NSTEPS (inklusive) -- erst ausgeben, dann Schritt */
     int logevery = (LOG_EVERY>0)? LOG_EVERY : NSTEPS/40; if(logevery<1)logevery=1;
-    for(int s=0;s<=NSTEPS;s++){
-        /* Energie ausgeben und Drift pruefen */
-        if(s%logevery==0){
+    /* Ohne DT_ADAPT: genau NSTEPS Schritte der Weite DT, t = s*DT (wie bisher).
+     * Mit DT_ADAPT:  Schritte bis t >= T_MAX; NSTEPS ist nur Notbremse.     */
+    double t=0.0;
+    for(int s=0;;s++){
+        double ts = DT_ADAPT? t : s*DT;
+        int last = DT_ADAPT? (t>=T_MAX || s>=NSTEPS) : (s>=NSTEPS);
+        /* Energie ausgeben und Drift pruefen (adaptiv: letzter Schritt immer) */
+        if(s%logevery==0 || (DT_ADAPT && last)){
             energies(&ek,&es,&er);
             double et=ek+es+er+E_broken;
             double drift = (e0!=0)? 100.0*(et-e0)/fabs(e0) : 0.0;
             printf("%6d %8.3f %10.3f %10.3f %10.3f %10.3f %11.3f %8.4f\n",
-                   s, s*DT, ek,es,er,E_broken,et,drift);
+                   s, ts, ek,es,er,E_broken,et,drift);
             fprintf(elog,"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
-                   s,s*DT,ek,es,er,E_broken,et);
+                   s,ts,ek,es,er,E_broken,et);
         }
         /* Animations-Frame speichern */
-        if(fxyz && s%DUMP_EVERY==0) dump_frame(fxyz, s*DT);
-        /* Zeitschritt (nicht nach dem letzten Schritt) */
-        if(s<NSTEPS) step(DT);
+        if(fxyz && s%DUMP_EVERY==0) dump_frame(fxyz, ts);
+        if(last){
+            if(DT_ADAPT && t<T_MAX)
+                fprintf(stderr,"WARNUNG: n_steps=%d erreicht bei t=%.4f < t_max=%.4f\n",NSTEPS,t,T_MAX);
+            break;
+        }
+        /* Zeitschritt */
+        double dt = DT_ADAPT? choose_dt() : DT;
+        step(dt);
+        t += dt;
     }
     fclose(elog);
     if(fxyz) fclose(fxyz);
