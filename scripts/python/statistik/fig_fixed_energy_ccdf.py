@@ -28,8 +28,10 @@ from clauset_refit import load, fit_of, pl_stats  # noqa: E402
 CAT = ["#2a78d6", "#eb6834", "#1baf7a"]        # kategoriale Slots 1-3
 INK, INK2, SURFACE = "#1f1f1e", "#5c5c58", "#fcfcfb"
 ENERGIES = [1300, 1800, 2400]
-PANELS = [("clusters_thr050_link150", "bisher: $\\mathtt{disp}>0{,}5$, Linkradius $1{,}5$"),
-          ("clusters_thr100_link100", "feiner: $\\mathtt{disp}>1{,}0$, Linkradius $1{,}0$")]
+PANELS = [("clusters_thr050_link150",
+           "alte Definition: verschoben ab 0,5, zusammen unter 1,5"),
+          ("clusters_thr100_link100",
+           "neue Definition: verschoben ab 1,0, zusammen unter 1,0")]
 
 
 def ccdf(d):
@@ -45,6 +47,8 @@ def main():
     folie = "--folie" in opts
     which = next((o.split("=", 1)[1] for o in opts if o.startswith("--panel=")), "both")
     panels = {"alt": PANELS[:1], "fein": PANELS[1:], "both": PANELS}[which]
+    if "--folie" in opts:   # auf der Folie steht die Definition im Text daneben
+        panels = [(tag, t.split(":")[0]) for tag, t in panels]
 
     # Folienvariante: groessere Schrift, weil die Abbildung auf der Folie
     # auf etwa die Haelfte verkleinert wird.
@@ -64,7 +68,9 @@ def main():
             alpha, xmin, sigma, D, ntail = pl_stats(fit)
             x, y = ccdf(d)
             ax.plot(x, y, "o", ms=4.6 if folie else 3.4, color=CAT[i], mew=0,
-                    label=f"$E={E}$:  $S={alpha:.2f}$,  $D={D:.3f}$")
+                    label=(f"$E={E}$:  $S={alpha:.2f}$,  Abw. ${D:.3f}$"
+                           .replace(".", ",") if folie
+                           else f"$E={E}$:  $S={alpha:.2f}$,  $D={D:.3f}$"))
             # angepasstes Potenzgesetz ab x_min, auf die Daten dort normiert
             xf = np.logspace(np.log10(max(xmin, 1)), np.log10(d.max()), 60)
             y0 = (d >= max(xmin, 1)).sum() / len(d)
@@ -83,7 +89,9 @@ def main():
         leg.get_frame().set_facecolor(SURFACE)
         for t in leg.get_texts():
             t.set_color(INK)
-    axes[0].set_ylabel("$P(N \\geq n)$", color=INK2, fontsize=F["label"])
+    axes[0].set_ylabel("Anteil Cluster mit\nmindestens $n$ Atomen" if folie
+                       else "$P(N \\geq n)$",
+                       color=INK2, fontsize=F["label"])
     if folie:
         fig.tight_layout()
     else:

@@ -104,7 +104,7 @@ def jobs():
              title="Schadensbildung - gerissene Bindungen",
              legend="fehlende Bindungen", bg=black, view=(0.2, 1.35)),
         dict(xyz="single.xyz", prop=None, name="3_cluster",
-             title="Defektcluster - disp > 1,0, Linkradius 1,0",
+             title="Defektcluster im Gitter",
              legend=None, bg=dark, cluster=True, view=(1.0, 2.0)),
         dict(xyz="multi.xyz", prop="vmag", lo=0.0, hi=0.6,
              grad=ColorCodingModifier.Jet(), name="4_mehrere_pka",
@@ -150,7 +150,7 @@ def render_job(j, xyz_dir, out_dir, renderer):
         pl.modifiers.append(color_by_cluster)
         set_view(vp, pl, j)
         vp.overlays.append(TextLabelOverlay(
-            text="[ClusterAnalysis.cluster_count] getrennte Cluster  ·  groesster: [ClusterAnalysis.largest_size]",
+            text="[ClusterAnalysis.cluster_count] getrennte Cluster  ·  größter: [ClusterAnalysis.largest_size] Atome",
             alignment=A.AlignBottom | A.AlignHCenter,
             text_color=(1, 1, 1), font_size=0.038,
             offset_y=0.03, source_pipeline=pl))
