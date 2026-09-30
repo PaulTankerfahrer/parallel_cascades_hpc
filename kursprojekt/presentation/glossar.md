@@ -1,7 +1,7 @@
 # Kleines Glossar zur Präsentation
 
 Einfach erklärt, zum Nachschlagen vor dem Vortrag. Die technische
-Langfassung steht in [`../docs/clauset_glossar.md`](../docs/clauset_glossar.md).
+Langfassung steht in [`../docs/clauset_glossar.md`](../../docs/clauset_glossar.md).
 
 ---
 

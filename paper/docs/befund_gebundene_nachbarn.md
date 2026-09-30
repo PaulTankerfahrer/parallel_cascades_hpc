@@ -118,7 +118,7 @@ solche, deren Feder schon gerissen ist.
 - **Das Endbild sieht plausibel aus.** Es entstehen gerissene Bindungen,
   verlagerte Atome und Cluster, nur über eine unphysikalische Stoßfolge.
 - **Die Abbildung der Kraft suggeriert das Gegenteil.**
-  `scripts/python/fig_force_law.py` (Folienabbildung P2_kraft.png) zeichnet die
+  `kursprojekt/scripts/python/fig_force_law.py` (Folienabbildung P2_kraft.png) zeichnet die
   Kraft zwischen zwei Nachbaratomen als Feder **plus** r⁻¹²-Wand. So steht es
   auch im Kommentar am Kopf von `cascade_serial.c` („Gibt Atomen einen
   effektiven Radius“). Der Code wendet die Wand auf gebundene Paare aber nie an.

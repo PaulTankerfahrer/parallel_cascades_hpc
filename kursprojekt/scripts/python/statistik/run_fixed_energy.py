@@ -22,7 +22,7 @@ Aufruf:
 import argparse, math, os, random, shutil, subprocess, sys, tempfile
 from concurrent.futures import ProcessPoolExecutor
 
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 SRC = os.path.join(REPO, "src", "cascade_serial.c")
 
 # (Schwelle auf disp, Linkradius) -- identisch benannt wie in analyze_ensemble.py

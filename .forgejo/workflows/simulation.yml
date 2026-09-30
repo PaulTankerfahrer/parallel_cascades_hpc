@@ -30,5 +30,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             openmpi-bin libopenmpi-dev
-      - name: Build + Physik-Smoke-Test
-        run: bash scripts/ci/build_and_test.sh
+      - name: Kursprojekt (eingefroren, seriell + MPI)
+        run: bash kursprojekt/scripts/ci/build_and_test.sh
+      - name: Paper (aktiver Code, ZBL)
+        run: bash paper/scripts/ci/build_and_test.sh

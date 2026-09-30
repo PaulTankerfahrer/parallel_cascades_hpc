@@ -1,6 +1,6 @@
 # Entscheidungslog
 
-*Stand: 2026-09-24. Zurück zum [Überblick](UEBERBLICK.md).*
+*Stand: 2026-09-30. Zurück zum [Überblick](UEBERBLICK.md).*
 
 Hier steht jede Entscheidung, die das Modell oder die Auswertung prägt, mit
 Begründung, verworfenen Alternativen und Folgen.
@@ -123,7 +123,7 @@ ausgerichtet, nicht auf physikalischen Realismus.
 
 ### E09 Befund: Gebundene Nachbarn sind durchlässig · Befund
 - Ab E ≈ 200 fliegt ein Atom durch seinen gebundenen Nachbarn. Folge von S3.
-  → [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md)
+  → [`befund_gebundene_nachbarn.md`](../paper/docs/befund_gebundene_nachbarn.md)
 
 ### E10 ZBL für alle Paare, r⁻¹²-Wand im ZBL-Modus aus · gilt
 - **Warum:** Behebt E09. Die r⁻¹²-Wand ist außerdem viel zu hart:
@@ -184,10 +184,36 @@ ausgerichtet, nicht auf physikalischen Realismus.
     aus der Schallgeschwindigkeit, E_d als Kontrolle nachmessen.
   - **B:** So lassen und ε aus E_d wählen. Die Schmelzzone dominiert dann.
   - **C:** Ohne eV-Skala, alles in E/E_d.
-- **Details:** [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md)
+- **Details:** [`haltepunkt_2026-09-24.md`](../paper/docs/haltepunkt_2026-09-24.md)
 
 ### E18 Kalibrierung per P(E)-Scan statt Iteration · gilt
 - **Warum:** Der erste Versuch passte ε iterativ an die jeweils erste
   Defektenergie an. Das pendelte (0,37 → 0,41 → 0,40 → 0,33), weil die erste
   Schwelle chaotisch auf kleine Änderungen reagiert. Der Scan über 31 Richtungen
   und 41 Energien misst stattdessen die ganze Kurve.
+
+---
+
+## Teil 4: Neuordnung (30.09.)
+
+### E19 Bachelorarbeit und Paper getrennt · gilt
+- **Was:** Die Bachelorarbeit untersucht, ob ein agentenbetriebenes HPC-Labor
+  das Minimalmodell eigenständig in Richtung MD-Referenzen weiterentwickeln kann
+  (Arbeitstitel). Das Paper rechnet echte Läufe auf dem PC2: Es prüft die
+  Ergebnisse des Agenten und setzt Pauls eigene Ideen um.
+- **Folge:** Der ZBL-Umbau gehört zum Paper, er ist interaktiv mit KI-Hilfe
+  entstanden und nicht autonom.
+
+### E20 Der Agent startet vom unveränderten Kursprojekt-Modell, in einem eigenen Repo · gilt
+- **Was:** Startpunkt ist der Code im Stand von Tag `kursprojekt-code`, mit
+  allen bekannten Fehlern (S3, S4 usw.). Der Agent sieht dieses Repo nicht.
+- **Warum:** Kennt der Agent unsere Befunde, misst das Experiment nur, ob er
+  abschreiben kann. Die bekannten Fehler dienen als Prüfliste für die
+  Auswertung ([`zusammenfassung_fuer_ba_planung.md`](../bachelorarbeit/zusammenfassung_fuer_ba_planung.md), Abschnitt 4).
+- **Offen:** Inhalt des Agenten-Repos, Referenzen und Messgrößen. Wird angelegt,
+  wenn der Plan der Arbeit steht.
+
+### E21 Kursprojekt eingefroren · gilt
+- **Was:** Alles aus Teil 1 und 2 inklusive Präsentation liegt in
+  `kursprojekt/` und wird nicht mehr geändert. Tag `kursprojekt-final`.
+  Ausnahme: Pfadkorrekturen, damit es weiter baut.

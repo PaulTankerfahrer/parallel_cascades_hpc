@@ -63,11 +63,13 @@ valgrind-report.txt
 .venv-powerlaw/
 
 # Python-venv fuer das OVITO-Rendering der Videos
-presentation/ovito-venv/
+kursprojekt/presentation/ovito-venv/
 
 # Arbeitsverzeichnis der Videopipeline (XYZ-Dumps, mehrere hundert MB)
-presentation/_work/
+kursprojekt/presentation/_work/
 
 # Clusterstatistik: getrimmte Rohdaten und Laufprotokolle (regenerierbar)
-results/statistik/ensemble_fest/*/disp/
-results/statistik/*.log
+kursprojekt/results/statistik/ensemble_fest/*/disp/
+kursprojekt/results/statistik/*.log
+paper/results/**/disp/
+paper/results/**/*.log

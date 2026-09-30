@@ -1,6 +1,6 @@
 # Modellparameter: Wert, Bedeutung, Herkunft
 
-*Stand: 2026-09-24. Zurück zum [Überblick](UEBERBLICK.md). Die Begründungen
+*Stand: 2026-09-30. Zurück zum [Überblick](UEBERBLICK.md). Die Begründungen
 stehen in [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md), die Kürzel (S2, E14, …)
 verweisen dorthin.*
 
@@ -12,10 +12,12 @@ verweisen dorthin.*
 - **Numerik:** nur für Genauigkeit oder Laufzeit, ohne physikalische Bedeutung
 
 **Wo die Werte herkommen:** Die Standardwerte stehen im Code
-(`src/cascade_serial.c`, oben). `src/params.ini` ist die Benchmark-Konfiguration
-aus dem Semesterprojekt (1414², kein Healing). Die Physik-Läufe schreiben ihre
-eigene `.ini` pro Lauf: `run_one.py` (altes Ensemble),
-`statistik/run_fixed_energy.py` (Teil 2) und `zbl/kalibrierung_ed.py`.
+(`paper/src/cascade_serial.c` bzw. `kursprojekt/src/cascade_serial.c`, oben).
+`src/params.ini` ist die Benchmark-Konfiguration aus dem Semesterprojekt
+(1414², kein Healing). Die Physik-Läufe schreiben ihre eigene `.ini` pro Lauf:
+`kursprojekt/scripts/python/run_one.py` (altes Ensemble),
+`…/statistik/run_fixed_energy.py` (Teil 2) und
+`paper/scripts/python/zbl/kalibrierung_ed.py`.
 
 ## Einheiten
 

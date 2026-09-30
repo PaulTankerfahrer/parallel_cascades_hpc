@@ -2,25 +2,23 @@
 
 **Einstieg: [`UEBERBLICK.md`](UEBERBLICK.md)**. Dort stehen die ganze Geschichte, was noch gilt und wo was liegt.
 
+## Gilt für das ganze Projekt
+
 | Datei | Inhalt |
 |---|---|
-| [`UEBERBLICK.md`](UEBERBLICK.md) | Einstieg: drei Projektteile, die Geschichte als Kette, was von den Ergebnissen noch gilt, Wegweiser. |
+| [`UEBERBLICK.md`](UEBERBLICK.md) | Einstieg: Aufbau des Repos, die Geschichte als Kette, was von den Ergebnissen noch gilt, Wegweiser. |
 | [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md) | Jede Entscheidung mit Begründung, Alternativen und Folgen. |
 | [`PARAMETER.md`](PARAMETER.md) | Jeder Modellparameter: Wert, Bedeutung, Herkunft, Status. |
-| [`projektstand.md`](projektstand.md) | Kompakter Gesamtstand: Kontext, alle Befunde mit Zahlen, offene Punkte. Zum Wiedereinstieg gedacht. |
 | [`clauset_glossar.md`](clauset_glossar.md) | Alle Fachbegriffe der Potenzgesetz-Analyse erklärt: MLE, x_min, Bootstrap, Goodness-of-Fit, Likelihood-Ratio-Test. |
-| [`plan_zbl.md`](plan_zbl.md) | Plan und Fortschritt: energieabhängiger Wirkungsquerschnitt (ZBL), elektronische Bremsung, Kalibrierung auf Wolfram, große Gitter. |
-| [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md) | Im alten Modell fliegen Atome mit E > ~200 durch ihre gebundenen Nachbarn hindurch. Ursache, Messung, Folgen für die bisherigen Ergebnisse, Korrektur. |
-| [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md) | Stand des ZBL-Umbaus am 24.09. und die offene Entscheidung zur Bindungsstärke. |
 
-## Die Befunde selbst
-
-Die ausführlichen Auswertungen liegen bei ihren Daten und Abbildungen:
+## In den Teilprojekten
 
 | Datei | Inhalt |
 |---|---|
-| [`../results/statistik/fit_gepoolt/BEFUND_gepoolt.md`](../results/statistik/fit_gepoolt/BEFUND_gepoolt.md) | Refit der Originaldaten (1000 Kaskaden, log-uniform gezogene Energie). Warum der Exponent 1,4 das Sampling misst und nicht die Kaskade. |
-| [`../results/statistik/fit_fest/BEFUND_fest.md`](../results/statistik/fit_fest/BEFUND_fest.md) | Ensemble bei fester PKA-Energie (3 × 300 Läufe). Clusterdefinition, Exponent, Vergleich mit Sand et al. |
-| [`../results/statistik/fit_fest/fixed_energy_uebersicht.md`](../results/statistik/fit_fest/fixed_energy_uebersicht.md) | Tabellen über alle Energien × sechs Clusterdefinitionen. |
-
-Die zugehörigen Skripte: [`../scripts/python/statistik/`](../scripts/python/statistik/).
+| [`../kursprojekt/docs/projektstand.md`](../kursprojekt/docs/projektstand.md) | Alle Zahlen der Clusterstatistik kompakt (Stand 24.09.). |
+| [`../kursprojekt/results/statistik/fit_gepoolt/BEFUND_gepoolt.md`](../kursprojekt/results/statistik/fit_gepoolt/BEFUND_gepoolt.md) | Refit der Originaldaten: Warum der Exponent 1,4 das Sampling misst und nicht die Kaskade. |
+| [`../kursprojekt/results/statistik/fit_fest/BEFUND_fest.md`](../kursprojekt/results/statistik/fit_fest/BEFUND_fest.md) | Ensemble bei fester PKA-Energie: Clusterdefinition, Exponent, Vergleich mit Sand et al. |
+| [`../paper/docs/plan_zbl.md`](../paper/docs/plan_zbl.md) | Plan und Fortschritt des ZBL-Umbaus. |
+| [`../paper/docs/befund_gebundene_nachbarn.md`](../paper/docs/befund_gebundene_nachbarn.md) | Im alten Modell fliegen Atome mit E > ~200 durch ihre gebundenen Nachbarn hindurch. |
+| [`../paper/docs/haltepunkt_2026-09-24.md`](../paper/docs/haltepunkt_2026-09-24.md) | Stand des ZBL-Umbaus und die offene Entscheidung zur Bindungsstärke. |
+| [`../bachelorarbeit/zusammenfassung_fuer_ba_planung.md`](../bachelorarbeit/zusammenfassung_fuer_ba_planung.md) | Kontext für die Planung der Bachelorarbeit. Nicht an den Agenten geben. |

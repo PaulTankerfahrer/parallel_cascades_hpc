@@ -1,7 +1,7 @@
 # Projektstand: Kollisionskaskaden-HPC — Kontext für einen neuen Chat
 
 *Stand: 2026-09-24. Zum Einfügen als Kontext am Anfang einer neuen Sitzung. Der
-Einstieg für Menschen ist [`UEBERBLICK.md`](UEBERBLICK.md).*
+Einstieg für Menschen ist [`UEBERBLICK.md`](../../docs/UEBERBLICK.md).*
 
 ---
 
@@ -116,7 +116,7 @@ konsistent mit der geringeren Konnektivität in zwei Dimensionen.
 
 ### Teil 3 — Modellfehler: gebundene Nachbarn sind durchlässig (2026-09-24)
 
-Ausführlich: [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md).
+Ausführlich: [`befund_gebundene_nachbarn.md`](../../paper/docs/befund_gebundene_nachbarn.md).
 
 Im bisherigen Modell wirkt die r⁻¹²-Abstoßung nur zwischen **ungebundenen** Paaren.
 Gebundene Nachbarn spüren nur ihre harmonische Feder, deren Energie bei r = 0 auf
@@ -132,14 +132,14 @@ für ein reales Material nicht belastbar.
 
 ### Teil 4 — Umbau: ZBL-Potenzial (in Arbeit)
 
-Plan und Fortschritt: [`plan_zbl.md`](plan_zbl.md). Kurz: Die Abstoßung wird
+Plan und Fortschritt: [`plan_zbl.md`](../../paper/docs/plan_zbl.md). Kurz: Die Abstoßung wird
 durch das abgeschirmte Coulomb-Potenzial (ZBL, Wolfram) für **alle** Paare
 ersetzt. Der Wirkungsquerschnitt schrumpft damit mit der Energie
 (r_min = 0,39 → 0,20 → 0,087 L0 bei E = 10² → 10³ → 10⁴). Dazu kommen ein
 adaptiver Zeitschritt, elektronische Bremsung, die Kalibrierung der Energieeinheit
 über E_d = 90 eV und größere Gitter (Ziel 700², nur Laptop, nur serielle Version).
 Erledigt: Phase 0, 1 und 3. Phase 2 (Kalibrierung) wartet auf eine Entscheidung
-zur Bindungsstärke, siehe [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md). Das alte Modell bleibt als `rep_model = r12` byte-identisch
+zur Bindungsstärke, siehe [`haltepunkt_2026-09-24.md`](../../paper/docs/haltepunkt_2026-09-24.md). Das alte Modell bleibt als `rep_model = r12` byte-identisch
 erhalten.
 
 ---

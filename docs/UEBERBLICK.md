@@ -1,6 +1,6 @@
 # Überblick: Was ist was, und warum
 
-*Stand: 2026-09-24. Einstieg ins Projekt. Alles Weitere ist von hier verlinkt.*
+*Stand: 2026-09-30. Einstieg ins Projekt. Alles Weitere ist von hier verlinkt.*
 
 Zwei Begleitdateien:
 - [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md): Welche Entscheidung wann und warum
@@ -16,21 +16,31 @@ Folgt die Größenverteilung der Defektcluster, die eine Kollisionskaskade in
 einem 2D-Gitter hinterlässt, einem Potenzgesetz p(n) ~ n^−S, und wenn ja, mit
 welchem S?
 
-## Drei Projektteile, die im selben Repo liegen
+## Aufbau des Repos (seit 30.09.)
+
+| Ordner | Inhalt | Status |
+|---|---|---|
+| [`kursprojekt/`](../kursprojekt/README.md) | HPC-Semesterprojekt (Bericht, seriell/MPI/CUDA, Messungen), Clusterstatistik, Präsentation. Code im Stand von Tag `kursprojekt-code` | **eingefroren**, wird nicht mehr geändert |
+| [`paper/`](../paper/README.md) | Weiterentwicklung des Modells (ZBL-Umbau), später die echten Läufe auf dem PC2 | aktiv |
+| [`bachelorarbeit/`](../bachelorarbeit/README.md) | Konzept und später Auswertung des Agentenlabors. Das Repo, in dem der Agent arbeitet, ist ein **eigenes** Repo und kommt erst, wenn der Plan steht | Planung |
+| `docs/` | diese Übersicht, Entscheidungslog, Parametertabelle, Clauset-Glossar | gilt für alles |
+
+## Drei Projektteile, zeitlich
 
 | Teil | Zeitraum | Worum es ging | Wo es liegt | Status |
 |---|---|---|---|---|
-| **1. HPC-Semesterprojekt** | bis 17.08. | Dieselbe Simulation seriell, mit MPI und mit CUDA. Hauptthema war die Laufzeit (Skalierung, GPU-Optimierung). Nebenbei ein erstes Potenzgesetz-Ergebnis, S ≈ 1,4. | `report.pdf`/`report.tex`, `src/mpi_cascade.c`, `src/cascade_cuda*.cu`, `scripts/job_*.sh`, CSVs direkt in `results/`, [`results/KATALOG.md`](../results/KATALOG.md) | abgeschlossen |
-| **2. Clusterstatistik** | bis 02.09. | Prüfen, ob S ≈ 1,4 stimmt. Ergebnis: nein. Dann ein neues Ensemble bei fester Energie. Dazu die Physik-Präsentation. | `results/statistik/`, `scripts/python/statistik/`, `presentation/` | abgeschlossen, Präsentation gehalten und fertig |
-| **3. ZBL-Umbau** | seit 24.09. | Das Modell physikalisch realistischer machen: energieabhängiger Wirkungsquerschnitt, Wolfram-Einheiten, größere Gitter. Dann die Frage aus Teil 2 neu stellen. | `src/cascade_serial.c`, `src/potential.h`, `scripts/python/zbl/`, `results/zbl/`, [`plan_zbl.md`](plan_zbl.md) | **in Arbeit, wartet auf eine Entscheidung** |
+| **1. HPC-Semesterprojekt** | bis 17.08. | Dieselbe Simulation seriell, mit MPI und mit CUDA. Hauptthema war die Laufzeit (Skalierung, GPU-Optimierung). Nebenbei ein erstes Potenzgesetz-Ergebnis, S ≈ 1,4. | `kursprojekt/`: `report.pdf`, `src/`, `scripts/job_*.sh`, `results/` ([`KATALOG.md`](../kursprojekt/results/KATALOG.md)) | abgeschlossen |
+| **2. Clusterstatistik** | bis 02.09. | Prüfen, ob S ≈ 1,4 stimmt. Ergebnis: nein. Dann ein neues Ensemble bei fester Energie. Dazu die Physik-Präsentation. | `kursprojekt/`: `results/statistik/`, `scripts/python/statistik/`, `presentation/` | abgeschlossen, Präsentation gehalten |
+| **3. ZBL-Umbau** | seit 24.09. | Das Modell physikalisch realistischer machen: energieabhängiger Wirkungsquerschnitt, Wolfram-Einheiten, größere Gitter. Dann die Frage aus Teil 2 neu stellen. | `paper/`: `src/`, `scripts/python/zbl/`, `results/zbl/`, [`plan_zbl.md`](../paper/docs/plan_zbl.md) | **in Arbeit, wartet auf eine Entscheidung** |
 
 Wichtig für die Orientierung:
-- `src/params.ini` ist die **Benchmark-Konfiguration aus Teil 1** (1414², kein
-  Healing). Die Physik-Läufe aus Teil 2 und 3 schreiben ihre eigene `.ini` pro
-  Lauf aus den Python-Skripten. Die Datei dokumentiert aber alle Schlüssel.
-- Nur `cascade_serial.c` kennt den Umbau aus Teil 3. MPI und CUDA rechnen
-  weiter das alte Modell. Das alte Modell ist in `cascade_serial.c` als
-  `rep_model = r12` bitgleich erhalten, der Standard.
+- `src/params.ini` (in beiden Ordnern) ist die **Benchmark-Konfiguration aus
+  Teil 1** (1414², kein Healing). Die Physik-Läufe schreiben ihre eigene `.ini`
+  pro Lauf aus den Python-Skripten. In `paper/src/params.ini` sind alle neuen
+  Schlüssel dokumentiert.
+- `paper/src/cascade_serial.c` enthält das alte Modell als `rep_model = r12`,
+  bitgleich zu `kursprojekt/src/cascade_serial.c`. Das ist der Standard. MPI und
+  CUDA gibt es nur im Kursprojekt, mit dem alten Modell.
 
 ---
 
@@ -44,7 +54,7 @@ Jeder Schritt folgt aus dem vorigen.
 2. **Nachgeprüft (Teil 2): Die Zahl ist reproduzierbar, aber kein
    Potenzgesetz.** Der Goodness-of-Fit-Test verwirft sie (p = 0,000), eine
    Lognormalverteilung passt besser.
-   → [`BEFUND_gepoolt.md`](../results/statistik/fit_gepoolt/BEFUND_gepoolt.md)
+   → [`BEFUND_gepoolt.md`](../kursprojekt/results/statistik/fit_gepoolt/BEFUND_gepoolt.md)
 
 3. **Ursache gefunden: Das Energie-Sampling erzeugt das Potenzgesetz.** Die
    PKA-Energie wurde log-uniform gewürfelt, und der größte Cluster wächst wie
@@ -60,7 +70,7 @@ Jeder Schritt folgt aus dem vorigen.
    (1,23 bis 3,30 auf denselben Daten), und auch die feine Definition ist
    statistisch **kein** Potenzgesetz. Belastbar ist nur der Trend: Je größer die
    Kaskade, desto näher am Potenzgesetz.
-   → [`BEFUND_fest.md`](../results/statistik/fit_fest/BEFUND_fest.md)
+   → [`BEFUND_fest.md`](../kursprojekt/results/statistik/fit_fest/BEFUND_fest.md)
 
 6. **Neue Idee (24.09.):** Realistisch wäre ein Wirkungsradius, der mit der
    Geschwindigkeit schrumpft, und größere Gitter. Gemessen:
@@ -76,23 +86,23 @@ Jeder Schritt folgt aus dem vorigen.
 
 7. **Plan: ZBL-Potenzial**, das Standardpotenzial für kurze Abstände in der
    Kaskaden-MD, dazu Wolfram-Einheiten und elektronische Bremsung.
-   → [`plan_zbl.md`](plan_zbl.md)
+   → [`plan_zbl.md`](../paper/docs/plan_zbl.md)
 
 8. **Beim Vorbereiten gefunden: ein Modellfehler.** Im alten Modell spüren
    gebundene Nachbarn keine Abstoßung, nur ihre Feder, und die gibt höchstens
    50 Energieeinheiten her. Ab E ≈ 200 fliegt ein Atom einfach durch seinen
    Nachbarn hindurch, schräg sogar ohne jede Ablenkung.
-   → [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md)
+   → [`befund_gebundene_nachbarn.md`](../paper/docs/befund_gebundene_nachbarn.md)
 
 9. **Umbau gebaut und getestet:** ZBL für alle Paare, adaptiver Zeitschritt,
-   elektronische Bremsung, absorbierender Rand, Frühabbruch. Alle 8 CI-Stufen
+   elektronische Bremsung, absorbierender Rand, Frühabbruch. Alle CI-Stufen
    laufen durch.
 
 10. **Kalibrierung hängt (Stand jetzt).** Um „E = 2400“ in eV zu übersetzen,
     braucht es den Umrechnungsfaktor ε. Dabei zeigt sich: Die Bindungen des
     Federmodells sind 5–13× schwächer als in Wolfram. Das Gitter schmilzt in
     der Kaskade großflächig. Entscheidung offen, siehe
-    [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md) und
+    [`haltepunkt_2026-09-24.md`](../paper/docs/haltepunkt_2026-09-24.md) und
     [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md) E17.
 
 ---
@@ -115,18 +125,20 @@ Jeder Schritt folgt aus dem vorigen.
 
 | Ich will wissen … | Datei |
 |---|---|
-| … wo wir gerade stehen und was als Nächstes ansteht | [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md) |
+| … wo wir gerade stehen und was als Nächstes ansteht | [`haltepunkt_2026-09-24.md`](../paper/docs/haltepunkt_2026-09-24.md) |
 | … warum etwas so ist, wie es ist | [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md) |
 | … was ein Parameter bedeutet und woher sein Wert kommt | [`PARAMETER.md`](PARAMETER.md) |
-| … wie der Code aufgebaut ist, wie man baut und startet | [`../README.md`](../README.md) |
+| … wie der Code des Kursprojekts aufgebaut ist, wie man baut und startet | [`kursprojekt/README.md`](../kursprojekt/README.md) |
+| … wie der aktuelle Code gebaut und getestet wird | [`paper/README.md`](../paper/README.md) |
+| … was für die Bachelorarbeit geplant ist | [`bachelorarbeit/`](../bachelorarbeit/README.md) |
 | … was die Fachbegriffe der Potenzgesetz-Statistik bedeuten | [`clauset_glossar.md`](clauset_glossar.md) |
-| … alle Zahlen aus Teil 2 kompakt | [`projektstand.md`](projektstand.md) |
-| … Details zum alten Sampling-Befund | [`BEFUND_gepoolt.md`](../results/statistik/fit_gepoolt/BEFUND_gepoolt.md) |
-| … Details zum Festenergie-Ensemble | [`BEFUND_fest.md`](../results/statistik/fit_fest/BEFUND_fest.md) |
-| … den Modellfehler mit den Bindungen | [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md) |
-| … den Plan und die Tests des Umbaus | [`plan_zbl.md`](plan_zbl.md) |
-| … die Kalibrierungszahlen | [`../results/zbl/kalibrierung/ergebnis.md`](../results/zbl/kalibrierung/ergebnis.md) |
-| … was die HPC-Messdateien in `results/` sind | [`../results/KATALOG.md`](../results/KATALOG.md) |
+| … alle Zahlen aus Teil 2 kompakt | [`projektstand.md`](../kursprojekt/docs/projektstand.md) |
+| … Details zum alten Sampling-Befund | [`BEFUND_gepoolt.md`](../kursprojekt/results/statistik/fit_gepoolt/BEFUND_gepoolt.md) |
+| … Details zum Festenergie-Ensemble | [`BEFUND_fest.md`](../kursprojekt/results/statistik/fit_fest/BEFUND_fest.md) |
+| … den Modellfehler mit den Bindungen | [`befund_gebundene_nachbarn.md`](../paper/docs/befund_gebundene_nachbarn.md) |
+| … den Plan und die Tests des Umbaus | [`plan_zbl.md`](../paper/docs/plan_zbl.md) |
+| … die Kalibrierungszahlen | [`paper/results/zbl/kalibrierung/ergebnis.md`](../paper/results/zbl/kalibrierung/ergebnis.md) |
+| … was die HPC-Messdateien in `kursprojekt/results/` sind | [`KATALOG.md`](../kursprojekt/results/KATALOG.md) |
 
 ---
 

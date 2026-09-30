@@ -42,4 +42,4 @@ Aufgerufen wird immer aus dem Projektwurzelverzeichnis.
   positives R gegen das Potenzgesetz — für ein genestetes Modell unmöglich.
   Solche Zellen erscheinen als „n. k.".
 
-Erklärung aller Fachbegriffe: [`../../../docs/clauset_glossar.md`](../../../docs/clauset_glossar.md).
+Erklärung aller Fachbegriffe: [`../../../docs/clauset_glossar.md`](../../../../docs/clauset_glossar.md).

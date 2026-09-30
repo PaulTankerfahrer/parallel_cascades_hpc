@@ -9,7 +9,7 @@
 # Valgrind beim Start scheitern ("function redirection ... mandatory").
 # Auf dem Ubuntu-CI-Runner (stabiles glibc) laeuft es normal.
 #
-# Lokal ausfuehrbar:  bash scripts/ci/valgrind_check.sh
+# Lokal ausfuehrbar:  bash kursprojekt/scripts/ci/valgrind_check.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
