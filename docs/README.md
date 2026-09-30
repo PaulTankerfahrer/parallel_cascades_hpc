@@ -1,11 +1,17 @@
 # Dokumentation
 
+**Einstieg: [`UEBERBLICK.md`](UEBERBLICK.md)**. Dort stehen die ganze Geschichte, was noch gilt und wo was liegt.
+
 | Datei | Inhalt |
 |---|---|
+| [`UEBERBLICK.md`](UEBERBLICK.md) | Einstieg: drei Projektteile, die Geschichte als Kette, was von den Ergebnissen noch gilt, Wegweiser. |
+| [`ENTSCHEIDUNGEN.md`](ENTSCHEIDUNGEN.md) | Jede Entscheidung mit Begründung, Alternativen und Folgen. |
+| [`PARAMETER.md`](PARAMETER.md) | Jeder Modellparameter: Wert, Bedeutung, Herkunft, Status. |
 | [`projektstand.md`](projektstand.md) | Kompakter Gesamtstand: Kontext, alle Befunde mit Zahlen, offene Punkte. Zum Wiedereinstieg gedacht. |
 | [`clauset_glossar.md`](clauset_glossar.md) | Alle Fachbegriffe der Potenzgesetz-Analyse erklärt: MLE, x_min, Bootstrap, Goodness-of-Fit, Likelihood-Ratio-Test. |
 | [`plan_zbl.md`](plan_zbl.md) | Plan und Fortschritt: energieabhängiger Wirkungsquerschnitt (ZBL), elektronische Bremsung, Kalibrierung auf Wolfram, große Gitter. |
 | [`befund_gebundene_nachbarn.md`](befund_gebundene_nachbarn.md) | Im alten Modell fliegen Atome mit E > ~200 durch ihre gebundenen Nachbarn hindurch. Ursache, Messung, Folgen für die bisherigen Ergebnisse, Korrektur. |
+| [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md) | Stand des ZBL-Umbaus am 24.09. und die offene Entscheidung zur Bindungsstärke. |
 
 ## Die Befunde selbst
 

@@ -79,6 +79,7 @@ project/
 │   └── plot_ensemble_scaling.py     # Ensemble-Machbarkeit: MPI-Scaling + Energie-Kalibrierung
 │
 ├── docs/                            # Dokumentation zur Auswertung
+│   ├── UEBERBLICK.md                # Einstieg: was ist was, und warum
 │   ├── projektstand.md              # Gesamtstand: Befunde, Zahlen, offene Punkte
 │   └── clauset_glossar.md           # Fachbegriffe der Potenzgesetz-Analyse
 │
@@ -477,7 +478,7 @@ der Kaskadenphysik. Bei fester Energie und einer Clusterdefinition, die getrennt
 Defektcluster auflöst, ergibt sich $S = 2{,}00 \pm 0{,}01$ bei $E = 2400$, mit
 fallendem Trend über die Kaskadengröße und daher nicht konvergiert.
 
-Einstieg: [`docs/projektstand.md`](docs/projektstand.md) ·
+Einstieg: [`docs/UEBERBLICK.md`](docs/UEBERBLICK.md) · [`docs/projektstand.md`](docs/projektstand.md) ·
 Begriffe: [`docs/clauset_glossar.md`](docs/clauset_glossar.md) ·
 Skripte: [`scripts/python/statistik/README.md`](scripts/python/statistik/README.md)
 

@@ -1,6 +1,7 @@
 # Projektstand: Kollisionskaskaden-HPC — Kontext für einen neuen Chat
 
-*Stand: 2026-09-24. Zum Einfügen als Kontext am Anfang einer neuen Sitzung.*
+*Stand: 2026-09-24. Zum Einfügen als Kontext am Anfang einer neuen Sitzung. Der
+Einstieg für Menschen ist [`UEBERBLICK.md`](UEBERBLICK.md).*
 
 ---
 
@@ -137,7 +138,8 @@ ersetzt. Der Wirkungsquerschnitt schrumpft damit mit der Energie
 (r_min = 0,39 → 0,20 → 0,087 L0 bei E = 10² → 10³ → 10⁴). Dazu kommen ein
 adaptiver Zeitschritt, elektronische Bremsung, die Kalibrierung der Energieeinheit
 über E_d = 90 eV und größere Gitter (Ziel 700², nur Laptop, nur serielle Version).
-Erledigt: Phase 0 und 1. Das alte Modell bleibt als `rep_model = r12` byte-identisch
+Erledigt: Phase 0, 1 und 3. Phase 2 (Kalibrierung) wartet auf eine Entscheidung
+zur Bindungsstärke, siehe [`haltepunkt_2026-09-24.md`](haltepunkt_2026-09-24.md). Das alte Modell bleibt als `rep_model = r12` byte-identisch
 erhalten.
 
 ---
@@ -193,13 +195,9 @@ python3 scripts/python/statistik/run_fixed_energy.py \
    Folie mit der Kraftkurve (`fig_force_law.py`, P2_kraft.png) zeigt die r⁻¹²-Wand
    auch zwischen gebundenen Nachbarn. So hat der Code nie gerechnet.
 
-1. **Folie 9** (`Das physikalische Ergebnis: ein Potenzgesetz`) ist an drei Stellen
-   widerlegt und noch nicht angepasst: „S ≈ 1,4, robust, 1,36 vs. 1,39"; „skalenfrei /
-   selbstorganisierte Kritikalität"; „Sand: 1,63 — der 2D-Wert liegt konsistent
-   darunter" (falsch in Zahl **und** Richtung). Eine fertige Ersatzformulierung steht in
-   §6 von `BEFUND_fest.md`.
-2. **Nichts vom Physik-Teil ist committet.** Letzter Commit `ad5be04` (17.08.), alles
-   danach liegt unversioniert im Arbeitsverzeichnis.
+1. ~~Folie 9 vertritt S ≈ 1,4.~~ Die Präsentation wurde am 02.09. neu aufgebaut
+   (`2dbe87e`), die alte Folie gibt es nicht mehr.
+2. ~~Nichts vom Physik-Teil ist committet.~~ Erledigt am 02.09. (`3cd6eed`, `b0f752e`).
 3. **Für die Arbeit:** größere Box und höhere Energie, um zu prüfen, ob S konvergiert.
    Der Trend legt nahe, dass die 2D-Kaskade bei 250×250 noch nicht im asymptotischen
    Regime ist.
